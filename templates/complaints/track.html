@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% block title %}Track Complaint — CivicAI{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto py-12 px-4">
+    <!-- Header -->
+    <div class="text-center mb-10">
+        <h1 class="text-3xl font-bold text-surface-900 mb-2">Track Your Complaint</h1>
+        <p class="text-surface-500">Enter your tracking ID to check the current status</p>
+    </div>
+
+    <!-- Search Box -->
+    <form method="get" class="mb-10">
+        <div class="flex gap-3">
+            <input type="text" name="tracking_id" value="{{ tracking_id }}" placeholder="e.g. CMP-20260511-A1B2" class="form-input flex-1 text-base" required>
+            <button type="submit" class="px-6 py-3 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 shadow-lg transition-all flex-shrink-0">
+                Track
+            </button>
+        </div>
+    </form>
+
+    {% if error %}
+    <!-- Error -->
+    <div class="text-center py-12">
+        <svg class="w-14 h-14 text-red-200 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <p class="text-surface-600 font-medium">{{ error }}</p>
+        <p class="text-sm text-surface-400 mt-1">Please check the tracking ID and try again.</p>
+    </div>
+    {% endif %}
+
+    {% if complaint %}
+    <!-- Result Card -->
+    <div class="bg-white rounded-2xl shadow-xl border border-surface-100 overflow-hidden">
+        <!-- Status Header -->
+        <div class="px-6 py-4
+            {% if complaint.status == 'pending' %}bg-amber-50 border-b border-amber-100
+            {% elif complaint.status == 'under_review' %}bg-blue-50 border-b border-blue-100
+            {% elif complaint.status == 'in_progress' %}bg-indigo-50 border-b border-indigo-100
+            {% elif complaint.status == 'resolved' %}bg-emerald-50 border-b border-emerald-100
+            {% elif complaint.status == 'rejected' %}bg-red-50 border-b border-red-100
+            {% else %}bg-surface-50 border-b border-surface-100
+            {% endif %}">
+            <div class="flex items-center justify-between">
+                <span class="text-sm font-mono font-medium text-primary-700">{{ complaint.tracking_id }}</span>
+                <span class="text-sm font-semibold
+                    {% if complaint.status == 'pending' %}text-amber-700
+                    {% elif complaint.status == 'resolved' %}text-emerald-700
+                    {% elif complaint.status == 'rejected' %}text-red-700
+                    {% else %}text-blue-700
+                    {% endif %}">
+                    {{ complaint.get_status_display }}
+                </span>
+            </div>
+        </div>
+
+        <!-- Details -->
+        <div class="p-6 space-y-4">
+            <div>
+                <h3 class="text-lg font-bold text-surface-900">{{ complaint.title }}</h3>
+                <p class="text-sm text-surface-500 mt-1 line-clamp-3">{{ complaint.description }}</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                    <span class="text-surface-400">Category</span>
+                    <p class="font-medium text-surface-800">{{ complaint.category|default:"—" }}</p>
+                </div>
+                <div>
+                    <span class="text-surface-400">Department</span>
+                    <p class="font-medium text-surface-800">{{ complaint.department.name|default:"Not assigned" }}</p>
+                </div>
+                <div>
+                    <span class="text-surface-400">Priority</span>
+                    <p class="font-medium text-surface-800">{{ complaint.get_priority_display }}</p>
+                </div>
+                <div>
+                    <span class="text-surface-400">Submitted</span>
+                    <p class="font-medium text-surface-800">{{ complaint.created_at|date:"M d, Y" }}</p>
+                </div>
+            </div>
+
+            <a href="{% url 'complaints:detail' complaint.tracking_id %}" class="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700 mt-2">
+                View Full Details
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

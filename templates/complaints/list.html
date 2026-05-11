@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+{% block title %}My Complaints — CivicAI{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto py-12 px-4">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-surface-900 mb-1">My Complaints</h1>
+            <p class="text-surface-500 text-sm">Track and manage all your submitted complaints</p>
+        </div>
+        <a href="{% url 'complaints:submit' %}" class="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 shadow-lg shadow-primary-500/25 transition-all duration-300">
+            + New Complaint
+        </a>
+    </div>
+
+    <!-- Status Filter -->
+    <div class="flex flex-wrap gap-2 mb-6">
+        <a href="{% url 'complaints:list' %}" class="px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-200 {% if not status_filter %}bg-primary-500 text-white shadow{% else %}bg-surface-100 text-surface-600 hover:bg-surface-200{% endif %}">
+            All
+        </a>
+        {% for value, label in status_choices %}
+        <a href="{% url 'complaints:list' %}?status={{ value }}" class="px-4 py-1.5 rounded-full text-xs font-medium transition-all duration-200 {% if status_filter == value %}bg-primary-500 text-white shadow{% else %}bg-surface-100 text-surface-600 hover:bg-surface-200{% endif %}">
+            {{ label }}
+        </a>
+        {% endfor %}
+    </div>
+
+    <!-- Complaint Cards -->
+    {% if complaints %}
+    <div class="space-y-4">
+        {% for complaint in complaints %}
+        <a href="{% url 'complaints:detail' complaint.tracking_id %}" class="block bg-white rounded-2xl border border-surface-100 p-5 sm:p-6 hover:shadow-xl hover:border-primary-200 transition-all duration-300 group">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1.5">
+                        <span class="text-xs font-mono font-medium text-primary-600 bg-primary-50 px-2 py-0.5 rounded">{{ complaint.tracking_id }}</span>
+                        <!-- Status badge -->
+                        <span class="text-xs font-medium px-2 py-0.5 rounded
+                            {% if complaint.status == 'pending' %}bg-amber-50 text-amber-700
+                            {% elif complaint.status == 'under_review' %}bg-blue-50 text-blue-700
+                            {% elif complaint.status == 'in_progress' %}bg-indigo-50 text-indigo-700
+                            {% elif complaint.status == 'resolved' %}bg-emerald-50 text-emerald-700
+                            {% elif complaint.status == 'rejected' %}bg-red-50 text-red-700
+                            {% else %}bg-surface-100 text-surface-600
+                            {% endif %}">
+                            {{ complaint.get_status_display }}
+                        </span>
+                    </div>
+                    <h3 class="text-base font-semibold text-surface-900 group-hover:text-primary-600 transition-colors truncate">{{ complaint.title }}</h3>
+                    <p class="text-sm text-surface-500 mt-1 line-clamp-1">{{ complaint.description }}</p>
+                </div>
+                <div class="flex items-center gap-4 text-xs text-surface-400 flex-shrink-0">
+                    {% if complaint.category %}
+                    <span class="hidden sm:inline bg-surface-50 px-2 py-1 rounded text-surface-600">{{ complaint.category }}</span>
+                    {% endif %}
+                    <span>{{ complaint.created_at|date:"M d, Y" }}</span>
+                    <svg class="w-4 h-4 text-surface-300 group-hover:text-primary-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </div>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="text-center py-20">
+        <svg class="w-16 h-16 text-surface-200 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        <h3 class="text-lg font-semibold text-surface-700 mb-2">No complaints yet</h3>
+        <p class="text-surface-400 mb-6">You haven't submitted any complaints. Start by filing one.</p>
+        <a href="{% url 'complaints:submit' %}" class="inline-flex px-6 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-primary-500 to-primary-600 shadow-lg transition-all">
+            Submit Your First Complaint
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

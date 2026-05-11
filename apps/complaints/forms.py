@@ -6,8 +6,35 @@ from django import forms
 from .models import Complaint, ComplaintImage
 
 
+# Category choices for the complaint form
+CATEGORY_CHOICES = [
+    ('', 'Select a category'),
+    ('Road & Pothole', 'Road & Pothole'),
+    ('Water Supply', 'Water Supply'),
+    ('Drainage & Sewage', 'Drainage & Sewage'),
+    ('Electricity', 'Electricity'),
+    ('Garbage & Sanitation', 'Garbage & Sanitation'),
+    ('Street Light', 'Street Light'),
+    ('Public Transport', 'Public Transport'),
+    ('Noise Pollution', 'Noise Pollution'),
+    ('Illegal Construction', 'Illegal Construction'),
+    ('Park & Playground', 'Park & Playground'),
+    ('Traffic Signal', 'Traffic Signal'),
+    ('Public Safety', 'Public Safety'),
+    ('Other', 'Other'),
+]
+
+
 class ComplaintForm(forms.ModelForm):
     """Form for citizens to submit a new complaint."""
+
+    category = forms.ChoiceField(
+        choices=CATEGORY_CHOICES,
+        required=True,
+        widget=forms.Select(attrs={
+            'class': 'form-input',
+        }),
+    )
 
     class Meta:
         model = Complaint
@@ -22,9 +49,6 @@ class ComplaintForm(forms.ModelForm):
                 'placeholder': 'Describe the issue in detail...',
                 'rows': 5,
             }),
-            'category': forms.Select(attrs={
-                'class': 'form-input',
-            }),
             'address': forms.Textarea(attrs={
                 'class': 'form-input',
                 'placeholder': 'Location / address of the issue',
@@ -36,12 +60,20 @@ class ComplaintForm(forms.ModelForm):
 class ComplaintImageForm(forms.ModelForm):
     """Form for uploading images with a complaint."""
 
+    image = forms.ImageField(
+        required=False,
+        widget=forms.ClearableFileInput(attrs={
+            'class': 'form-input',
+            'accept': 'image/*',
+        }),
+    )
+
     class Meta:
         model = ComplaintImage
         fields = ('image', 'caption')
         widgets = {
             'caption': forms.TextInput(attrs={
                 'class': 'form-input',
-                'placeholder': 'Optional caption',
+                'placeholder': 'Optional caption for the image',
             }),
         }

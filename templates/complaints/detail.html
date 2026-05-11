@@ -1,0 +1,147 @@
+{% extends 'base.html' %}
+{% block title %}{{ complaint.tracking_id }} — CivicAI{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto py-12 px-4">
+    <!-- Back link -->
+    <a href="{% url 'complaints:list' %}" class="inline-flex items-center gap-1 text-sm text-surface-500 hover:text-primary-600 transition-colors mb-6">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        Back to My Complaints
+    </a>
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row items-start justify-between gap-4 mb-8">
+        <div>
+            <div class="flex items-center gap-2 mb-2">
+                <span class="text-sm font-mono font-medium text-primary-600 bg-primary-50 px-2.5 py-1 rounded-lg">{{ complaint.tracking_id }}</span>
+                <span class="text-xs font-medium px-2.5 py-1 rounded-lg
+                    {% if complaint.status == 'pending' %}bg-amber-50 text-amber-700 border border-amber-200
+                    {% elif complaint.status == 'under_review' %}bg-blue-50 text-blue-700 border border-blue-200
+                    {% elif complaint.status == 'in_progress' %}bg-indigo-50 text-indigo-700 border border-indigo-200
+                    {% elif complaint.status == 'resolved' %}bg-emerald-50 text-emerald-700 border border-emerald-200
+                    {% elif complaint.status == 'rejected' %}bg-red-50 text-red-700 border border-red-200
+                    {% else %}bg-surface-100 text-surface-600
+                    {% endif %}">
+                    {{ complaint.get_status_display }}
+                </span>
+                <span class="text-xs font-medium px-2.5 py-1 rounded-lg
+                    {% if complaint.priority == 'low' %}bg-surface-50 text-surface-600
+                    {% elif complaint.priority == 'medium' %}bg-amber-50 text-amber-700
+                    {% elif complaint.priority == 'high' %}bg-orange-50 text-orange-700
+                    {% elif complaint.priority == 'critical' %}bg-red-50 text-red-700
+                    {% endif %}">
+                    {{ complaint.get_priority_display }} Priority
+                </span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-bold text-surface-900">{{ complaint.title }}</h1>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Main Content -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Description Card -->
+            <div class="bg-white rounded-2xl shadow-lg border border-surface-100 p-6">
+                <h2 class="text-sm font-semibold text-surface-500 uppercase tracking-wider mb-3">Description</h2>
+                <p class="text-surface-700 leading-relaxed whitespace-pre-wrap">{{ complaint.description }}</p>
+            </div>
+
+            <!-- Images Card -->
+            {% if images %}
+            <div class="bg-white rounded-2xl shadow-lg border border-surface-100 p-6">
+                <h2 class="text-sm font-semibold text-surface-500 uppercase tracking-wider mb-4">Attached Images</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {% for img in images %}
+                    <div class="rounded-xl overflow-hidden border border-surface-100">
+                        <img src="{{ img.image.url }}" alt="{{ img.caption|default:'Complaint image' }}" class="w-full h-48 object-cover">
+                        {% if img.caption %}
+                        <p class="p-3 text-xs text-surface-500">{{ img.caption }}</p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Status Timeline -->
+            <div class="bg-white rounded-2xl shadow-lg border border-surface-100 p-6">
+                <h2 class="text-sm font-semibold text-surface-500 uppercase tracking-wider mb-4">Status Timeline</h2>
+
+                {% if status_updates %}
+                <div class="space-y-0">
+                    {% for update in status_updates %}
+                    <div class="flex gap-4">
+                        <!-- Timeline dot and line -->
+                        <div class="flex flex-col items-center">
+                            <div class="w-3 h-3 rounded-full bg-primary-500 ring-4 ring-primary-100 flex-shrink-0 mt-1.5"></div>
+                            {% if not forloop.last %}
+                            <div class="w-0.5 bg-surface-200 flex-1 min-h-[2rem]"></div>
+                            {% endif %}
+                        </div>
+                        <!-- Content -->
+                        <div class="pb-6">
+                            <p class="text-sm font-medium text-surface-900">
+                                {{ update.get_old_status_display }} → {{ update.get_new_status_display }}
+                            </p>
+                            {% if update.remarks %}
+                            <p class="text-sm text-surface-500 mt-0.5">{{ update.remarks }}</p>
+                            {% endif %}
+                            <p class="text-xs text-surface-400 mt-1">
+                                {{ update.created_at|date:"M d, Y — h:i A" }}
+                                {% if update.changed_by %}· by {{ update.changed_by.get_full_name }}{% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="flex items-center gap-3 text-sm text-surface-400">
+                    <div class="w-3 h-3 rounded-full bg-amber-400 ring-4 ring-amber-100"></div>
+                    <span>Complaint submitted — awaiting review</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-6">
+            <!-- Details Card -->
+            <div class="bg-white rounded-2xl shadow-lg border border-surface-100 p-6">
+                <h2 class="text-sm font-semibold text-surface-500 uppercase tracking-wider mb-4">Details</h2>
+                <dl class="space-y-4 text-sm">
+                    <div>
+                        <dt class="text-surface-400 mb-0.5">Category</dt>
+                        <dd class="font-medium text-surface-800">{{ complaint.category|default:"Not categorized" }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-surface-400 mb-0.5">Department</dt>
+                        <dd class="font-medium text-surface-800">{{ complaint.department.name|default:"Not assigned yet" }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-surface-400 mb-0.5">Submitted By</dt>
+                        <dd class="font-medium text-surface-800">{{ complaint.complainant.get_full_name }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-surface-400 mb-0.5">Submitted On</dt>
+                        <dd class="font-medium text-surface-800">{{ complaint.created_at|date:"M d, Y — h:i A" }}</dd>
+                    </div>
+                    {% if complaint.resolved_at %}
+                    <div>
+                        <dt class="text-surface-400 mb-0.5">Resolved On</dt>
+                        <dd class="font-medium text-emerald-700">{{ complaint.resolved_at|date:"M d, Y — h:i A" }}</dd>
+                    </div>
+                    {% endif %}
+                </dl>
+            </div>
+
+            <!-- Location Card -->
+            {% if complaint.address %}
+            <div class="bg-white rounded-2xl shadow-lg border border-surface-100 p-6">
+                <h2 class="text-sm font-semibold text-surface-500 uppercase tracking-wider mb-3">Location</h2>
+                <p class="text-sm text-surface-700">{{ complaint.address }}</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
