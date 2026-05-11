@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block title %}Register — CivicAI{% endblock %}
+{% block content %}
+<div class="min-h-[60vh] flex items-center justify-center">
+    <div class="w-full max-w-md p-8 bg-white rounded-2xl shadow-xl border border-surface-100">
+        <h1 class="text-2xl font-bold text-surface-900 mb-6 text-center">Create Account</h1>
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="w-full mt-4 px-6 py-3 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 shadow-lg transition-all">Register</button>
+        </form>
+        <p class="mt-4 text-center text-sm text-surface-500">Already have an account? <a href="{% url 'accounts:login' %}" class="text-primary-600 font-medium hover:underline">Sign In</a></p>
+    </div>
+</div>
+{% endblock %}
