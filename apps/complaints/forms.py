@@ -38,7 +38,7 @@ class ComplaintForm(forms.ModelForm):
 
     class Meta:
         model = Complaint
-        fields = ('title', 'description', 'category', 'address')
+        fields = ('title', 'description', 'category', 'address', 'latitude', 'longitude')
         widgets = {
             'title': forms.TextInput(attrs={
                 'class': 'form-input',
@@ -54,7 +54,10 @@ class ComplaintForm(forms.ModelForm):
                 'placeholder': 'Location / address of the issue',
                 'rows': 2,
             }),
+            'latitude': forms.HiddenInput(),
+            'longitude': forms.HiddenInput(),
         }
+
 
 
 class ComplaintImageForm(forms.ModelForm):
