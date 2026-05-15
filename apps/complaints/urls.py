@@ -12,6 +12,7 @@ urlpatterns = [
     path('dashboard/', views.admin_dashboard_view, name='dashboard'),
     path('complaints/submit/', views.submit_complaint_view, name='submit'),
     path('complaints/', views.complaint_list_view, name='list'),
+    path('complaints/explore/', views.public_complaints_view, name='explore'),
     path('complaints/map/', views.complaint_map_view, name='map'),
     path('complaints/<str:tracking_id>/', views.complaint_detail_view, name='detail'),
 ]

@@ -83,7 +83,7 @@ def classify_complaint(text: str, image_path: str = None) -> dict:
         if image_path and os.path.exists(image_path):
             base64_image = encode_image_to_base64(image_path)
             if base64_image:
-                model = "llama-4-scout" # User-specified model for image classification
+                model = "meta-llama/llama-4-scout-17b-16e-instruct" # User-specified model for image classification
                 messages.append({
                     "role": "user",
                     "content": [

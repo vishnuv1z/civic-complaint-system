@@ -31,6 +31,11 @@ def submit_complaint_view(request):
             # Save complaint with the logged-in user as complainant
             complaint = form.save(commit=False)
             complaint.complainant = request.user
+            
+            # Route to correct department based on category
+            from apps.ai_engine.router import route_complaint
+            complaint.department = route_complaint(complaint.category)
+            
             complaint.save()
 
             # Save image if provided
@@ -53,6 +58,14 @@ def submit_complaint_view(request):
     return render(request, 'complaints/submit.html', {
         'form': form,
         'image_form': image_form,
+    })
+
+
+def public_complaints_view(request):
+    """Show a gallery of all public complaints."""
+    complaints = Complaint.objects.select_related('complainant').prefetch_related('images').order_by('-created_at')
+    return render(request, 'complaints/public_list.html', {
+        'complaints': complaints,
     })
 
 

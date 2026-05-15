@@ -30,6 +30,9 @@
                     My Complaints
                 </a>
                 {% endif %}
+                <a href="{% url 'complaints:explore' %}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-primary-50 transition-all duration-200">
+                    Explore
+                </a>
                 <a href="{% url 'complaints:map' %}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-primary-50 transition-all duration-200">
                     Complaints Map
                 </a>
@@ -84,6 +87,7 @@
                 <a href="{% url 'complaints:submit' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-primary-50 transition-all">Submit Complaint</a>
                 <a href="{% url 'complaints:list' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-primary-50 transition-all">My Complaints</a>
                 {% endif %}
+                <a href="{% url 'complaints:explore' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-primary-50 transition-all">Explore</a>
                 <a href="{% url 'complaints:map' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-primary-50 transition-all">Complaints Map</a>
             </div>
         </div>
