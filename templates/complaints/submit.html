@@ -24,13 +24,23 @@
             </h2>
 
             <div>
-                <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-surface-700 mb-1">Title <span class="text-red-500">*</span></label>
+                <div class="flex justify-between items-center mb-1">
+                    <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-surface-700">Title <span class="text-red-500">*</span></label>
+                    <button type="button" id="btn-rewrite-title" class="text-xs font-semibold px-3 py-1 bg-primary-50 hover:bg-primary-100 text-primary-700 rounded-lg flex items-center gap-1 transition-all">
+                        Auto-Rewrite
+                    </button>
+                </div>
                 {{ form.title }}
                 {% if form.title.errors %}<p class="mt-1 text-xs text-red-600">{{ form.title.errors.0 }}</p>{% endif %}
             </div>
 
             <div>
-                <label for="{{ form.category.id_for_label }}" class="block text-sm font-medium text-surface-700 mb-1">Category <span class="text-red-500">*</span></label>
+                <div class="flex justify-between items-center mb-1">
+                    <label for="{{ form.category.id_for_label }}" class="block text-sm font-medium text-surface-700">Category <span class="text-red-500">*</span></label>
+                    <button type="button" id="btn-auto-categorize" class="text-xs font-semibold px-3 py-1 bg-primary-50 hover:bg-primary-100 text-primary-700 rounded-lg flex items-center gap-1 transition-all">
+                        Auto-Categorize
+                    </button>
+                </div>
                 {{ form.category }}
                 {% if form.category.errors %}<p class="mt-1 text-xs text-red-600">{{ form.category.errors.0 }}</p>{% endif %}
             </div>
@@ -290,6 +300,107 @@ if (btnGenerate) {
         } finally {
             btnGenerate.disabled = false;
             btnGenerate.innerHTML = originalText;
+        }
+    });
+}
+
+// AI Title Rewriting
+const btnRewrite = document.getElementById('btn-rewrite-title');
+if (btnRewrite) {
+    btnRewrite.addEventListener('click', async function() {
+        const title = titleInput.value.trim();
+        if (!title) {
+            alert('Please enter a basic title first to rewrite it.');
+            titleInput.focus();
+            return;
+        }
+
+        const originalHtml = btnRewrite.innerHTML;
+        btnRewrite.innerHTML = `<svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Rewriting...`;
+        btnRewrite.disabled = true;
+
+        const formData = new FormData();
+        formData.append('title', title);
+
+        try {
+            const response = await fetch('{% url "ai_engine:rewrite_title" %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                titleInput.value = data.title;
+            } else {
+                alert('Error rewriting title. ' + (data.error || ''));
+            }
+        } catch (error) {
+            console.error('Error rewriting title:', error);
+            alert('Failed to rewrite title. Please try again.');
+        } finally {
+            btnRewrite.innerHTML = originalHtml;
+            btnRewrite.disabled = false;
+        }
+    });
+}
+
+// AI Auto-Categorize
+const btnCategorize = document.getElementById('btn-auto-categorize');
+if (btnCategorize) {
+    btnCategorize.addEventListener('click', async function() {
+        const title = titleInput.value.trim();
+        if (!title) {
+            alert('Please enter a title first to categorize it.');
+            titleInput.focus();
+            return;
+        }
+
+        const originalHtml = btnCategorize.innerHTML;
+        btnCategorize.innerHTML = `<svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Categorizing...`;
+        btnCategorize.disabled = true;
+
+        const formData = new FormData();
+        formData.append('title', title);
+        
+        const fileInput = document.getElementById('id_image');
+        if (fileInput.files.length > 0) {
+            formData.append('image', fileInput.files[0]);
+        }
+
+        try {
+            const response = await fetch('{% url "ai_engine:categorize" %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                // Find matching option in the select
+                const options = Array.from(categoryInput.options);
+                const matchingOption = options.find(opt => opt.value === data.category);
+                
+                if (matchingOption) {
+                    categoryInput.value = matchingOption.value;
+                } else if (data.category === 'Other') {
+                    categoryInput.value = 'Other';
+                } else {
+                    alert(`Categorized as ${data.category}, but it's not in the list.`);
+                }
+            } else {
+                alert('Error categorizing. ' + (data.error || ''));
+            }
+        } catch (error) {
+            console.error('Error categorizing:', error);
+            alert('Failed to categorize. Please try again.');
+        } finally {
+            btnCategorize.innerHTML = originalHtml;
+            btnCategorize.disabled = false;
         }
     });
 }
