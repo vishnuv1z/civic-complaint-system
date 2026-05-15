@@ -1,6 +1,10 @@
 {% extends 'base.html' %}
 {% block title %}Complaints Map — CivicAI{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+{% endblock %}
+
 {% block content %}
 <div class="max-w-7xl mx-auto py-8 px-4">
     <!-- Header -->
@@ -18,20 +22,7 @@
 
     <!-- Map Container -->
     <div class="bg-white rounded-2xl shadow-xl border border-surface-100 overflow-hidden">
-        <div id="complaints-map" class="w-full h-[600px] flex items-center justify-center bg-surface-50">
-            <!-- Placeholder until Google Maps API is added -->
-            <div class="text-center px-6">
-                <svg class="w-16 h-16 text-surface-200 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
-                </svg>
-                <h3 class="text-lg font-semibold text-surface-600 mb-2">Map View — Kerala</h3>
-                <p class="text-sm text-surface-400 max-w-md mx-auto">Google Maps integration coming soon. Complaints with location data will be plotted here as interactive markers.</p>
-                <div class="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-100 text-xs font-medium text-surface-500">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                    Center: Kerala, India (10.8505° N, 76.2711° E)
-                </div>
-            </div>
-        </div>
+        <div id="complaints-map" class="w-full h-[600px] z-10 relative bg-surface-50"></div>
     </div>
 
     <!-- Stats bar -->
@@ -50,4 +41,53 @@
         </div>
     </div>
 </div>
+
+{{ complaints_json|json_script:"complaints-data" }}
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+    // Initialize map centered on Kerala
+    const map = L.map('complaints-map').setView([10.8505, 76.2711], 7);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Get complaints data
+    const complaintsData = JSON.parse(document.getElementById('complaints-data').textContent);
+
+    // Add markers
+    complaintsData.forEach(c => {
+        let markerColor = 'blue';
+        if (c.status === 'pending') markerColor = 'orange';
+        if (c.status === 'resolved') markerColor = 'green';
+        if (c.status === 'rejected') markerColor = 'red';
+
+        // Using default Leaflet marker, customized via popup
+        const marker = L.marker([c.latitude, c.longitude]).addTo(map);
+        
+        const popupContent = `
+            <div class="p-1 min-w-[200px]">
+                <div class="text-xs font-mono font-semibold text-primary-600 mb-1">${c.tracking_id}</div>
+                <h3 class="font-bold text-surface-800 text-sm mb-2 line-clamp-2">${c.title}</h3>
+                <div class="mb-3">
+                    <span class="text-[10px] font-medium px-2 py-0.5 rounded uppercase
+                        ${c.status === 'pending' ? 'bg-amber-50 text-amber-700' : 
+                          c.status === 'resolved' ? 'bg-emerald-50 text-emerald-700' : 
+                          c.status === 'rejected' ? 'bg-red-50 text-red-700' : 
+                          'bg-blue-50 text-blue-700'}">
+                        ${c.status_display}
+                    </span>
+                </div>
+                <a href="${c.url}" class="text-xs font-medium text-primary-600 hover:text-primary-700 hover:underline">View Details →</a>
+            </div>
+        `;
+        
+        marker.bindPopup(popupContent);
+    });
+</script>
 {% endblock %}

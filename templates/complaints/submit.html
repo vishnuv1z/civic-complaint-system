@@ -1,6 +1,10 @@
 {% extends 'base.html' %}
 {% block title %}Submit Complaint — CivicAI{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+{% endblock %}
+
 {% block content %}
 <div class="max-w-3xl mx-auto py-12 px-4">
     <!-- Header -->
@@ -40,15 +44,32 @@
 
         <!-- Location Card -->
         <div class="bg-white rounded-2xl shadow-lg border border-surface-100 p-6 sm:p-8 space-y-5">
-            <h2 class="text-lg font-semibold text-surface-900 flex items-center gap-2">
-                <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                Location
-            </h2>
+            <div class="flex justify-between items-center">
+                <h2 class="text-lg font-semibold text-surface-900 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    Location
+                </h2>
+                <button type="button" id="use-current-location" class="text-xs font-medium px-3 py-1.5 bg-primary-50 text-primary-700 hover:bg-primary-100 rounded-lg flex items-center gap-1 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/></svg>
+                    Use Current Location
+                </button>
+            </div>
 
             <div>
                 <label for="{{ form.address.id_for_label }}" class="block text-sm font-medium text-surface-700 mb-1">Address</label>
                 {{ form.address }}
                 {% if form.address.errors %}<p class="mt-1 text-xs text-red-600">{{ form.address.errors.0 }}</p>{% endif %}
+            </div>
+
+            <div class="mt-4">
+                <label class="block text-sm font-medium text-surface-700 mb-2">Pinpoint Location on Map</label>
+                <div id="submit-map" class="w-full h-[300px] rounded-xl border border-surface-200 z-10 relative"></div>
+                <p id="location-error" class="hidden mt-2 text-xs text-red-600"></p>
+                <p id="location-success" class="hidden mt-2 text-xs text-emerald-600"></p>
+                {{ form.latitude }}
+                {% if form.latitude.errors %}<p class="mt-1 text-xs text-red-600">Latitude Error: {{ form.latitude.errors.0 }}</p>{% endif %}
+                {{ form.longitude }}
+                {% if form.longitude.errors %}<p class="mt-1 text-xs text-red-600">Longitude Error: {{ form.longitude.errors.0 }}</p>{% endif %}
             </div>
         </div>
 
@@ -89,6 +110,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
 // Image preview
 const imageInput = document.getElementById('id_image');
@@ -128,5 +150,96 @@ if (dropZone) {
         }
     });
 }
+
+// Map and Geolocation
+const latInput = document.getElementById('id_latitude');
+const lngInput = document.getElementById('id_longitude');
+const btnLocation = document.getElementById('use-current-location');
+const errorEl = document.getElementById('location-error');
+const successEl = document.getElementById('location-success');
+
+// Initialize map (default to Kerala center)
+const defaultLat = 10.8505;
+const defaultLng = 76.2711;
+const map = L.map('submit-map').setView([defaultLat, defaultLng], 7);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+
+let marker = null;
+
+// Function to update marker and inputs
+function updateLocation(lat, lng) {
+    if (marker) {
+        marker.setLatLng([lat, lng]);
+    } else {
+        marker = L.marker([lat, lng], {draggable: true}).addTo(map);
+        marker.on('dragend', function(e) {
+            const pos = marker.getLatLng();
+            updateLocation(pos.lat, pos.lng);
+        });
+    }
+    // Limit to 6 decimal places to match Django's DecimalField max_decimal_places=6
+    latInput.value = lat.toFixed(6);
+    lngInput.value = lng.toFixed(6);
+    map.setView([lat, lng], 15);
+}
+
+// If inputs already have values, show them
+if (latInput.value && lngInput.value) {
+    updateLocation(parseFloat(latInput.value), parseFloat(lngInput.value));
+}
+
+// Map click event
+map.on('click', function(e) {
+    updateLocation(e.latlng.lat, e.latlng.lng);
+    errorEl.classList.add('hidden');
+    successEl.textContent = "Location selected manually.";
+    successEl.classList.remove('hidden');
+});
+
+// Geolocation
+btnLocation.addEventListener('click', function() {
+    btnLocation.disabled = true;
+    btnLocation.innerHTML = `<svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Locating...`;
+    
+    if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                updateLocation(lat, lng);
+                
+                errorEl.classList.add('hidden');
+                successEl.textContent = "Location updated successfully!";
+                successEl.classList.remove('hidden');
+                
+                btnLocation.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Found`;
+                btnLocation.classList.replace('bg-primary-50', 'bg-emerald-50');
+                btnLocation.classList.replace('text-primary-700', 'text-emerald-700');
+            },
+            function(error) {
+                btnLocation.disabled = false;
+                btnLocation.innerHTML = `Use Current Location`;
+                successEl.classList.add('hidden');
+                errorEl.classList.remove('hidden');
+                if (error.code === error.PERMISSION_DENIED) {
+                    errorEl.textContent = "Location access was denied. Please allow location access or click on the map.";
+                } else {
+                    errorEl.textContent = "Unable to retrieve your location. Please click on the map to set your location.";
+                }
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    } else {
+        btnLocation.disabled = false;
+        btnLocation.innerHTML = `Use Current Location`;
+        successEl.classList.add('hidden');
+        errorEl.classList.remove('hidden');
+        errorEl.textContent = "Geolocation is not supported by your browser.";
+    }
+});
 </script>
 {% endblock %}
