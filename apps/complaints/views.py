@@ -61,11 +61,29 @@ def submit_complaint_view(request):
     })
 
 
+import json
+from django.urls import reverse
+
 def public_complaints_view(request):
-    """Show a gallery of all public complaints."""
+    """Show a gallery of all public complaints and a map."""
     complaints = Complaint.objects.select_related('complainant').prefetch_related('images').order_by('-created_at')
+
+    complaints_data = []
+    for c in complaints:
+        if c.latitude is not None and c.longitude is not None:
+            complaints_data.append({
+                'tracking_id': c.tracking_id,
+                'title': c.title,
+                'status': c.status,
+                'status_display': c.get_status_display(),
+                'latitude': float(c.latitude),
+                'longitude': float(c.longitude),
+                'url': reverse('complaints:detail', kwargs={'tracking_id': c.tracking_id})
+            })
+
     return render(request, 'complaints/public_list.html', {
         'complaints': complaints,
+        'complaints_json': json.dumps(complaints_data),
     })
 
 
@@ -99,33 +117,7 @@ def complaint_detail_view(request, tracking_id):
     })
 
 
-import json
-from django.urls import reverse
 
-def complaint_map_view(request):
-    """Show all complaints plotted on a map of Kerala."""
-    complaints = Complaint.objects.exclude(
-        latitude__isnull=True
-    ).exclude(
-        longitude__isnull=True
-    ).select_related('complainant', 'department')
-
-    complaints_data = []
-    for c in complaints:
-        complaints_data.append({
-            'tracking_id': c.tracking_id,
-            'title': c.title,
-            'status': c.status,
-            'status_display': c.get_status_display(),
-            'latitude': float(c.latitude),
-            'longitude': float(c.longitude),
-            'url': reverse('complaints:detail', kwargs={'tracking_id': c.tracking_id})
-        })
-
-    return render(request, 'complaints/map.html', {
-        'complaints': complaints,
-        'complaints_json': json.dumps(complaints_data),
-    })
 
 
 def is_staff_user(user):

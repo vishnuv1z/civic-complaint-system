@@ -1,6 +1,10 @@
 {% extends 'base.html' %}
 {% block title %}Explore Complaints — CivicAI{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+{% endblock %}
+
 {% block content %}
 <div class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
     <!-- Header -->
@@ -72,5 +76,86 @@
         <p class="text-surface-500">There are no public complaints to display yet.</p>
     </div>
     {% endif %}
+
+    <!-- Map Section -->
+    <div class="mt-12">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+            <h2 class="text-2xl font-bold text-surface-900">Geographical Distribution</h2>
+            <div class="flex items-center gap-2 text-xs font-medium text-surface-500 bg-white px-4 py-2 rounded-lg border border-surface-200 shadow-sm">
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Pending
+                <span class="w-2.5 h-2.5 rounded-full bg-blue-500 ml-2"></span> In Progress
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 ml-2"></span> Resolved
+                <span class="w-2.5 h-2.5 rounded-full bg-red-500 ml-2"></span> Rejected
+            </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-xl border border-surface-100 overflow-hidden">
+            <div id="complaints-map" class="w-full h-[500px] z-10 relative bg-surface-50"></div>
+        </div>
+    </div>
 </div>
+
+{{ complaints_json|json_script:"complaints-data" }}
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+    // Initialize map centered on Kerala
+    const map = L.map('complaints-map').setView([10.8505, 76.2711], 7);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Get complaints data
+    const complaintsData = JSON.parse(document.getElementById('complaints-data').textContent);
+
+    // Add markers
+    complaintsData.forEach(c => {
+        let markerColor = '#ef4444'; // Default to red
+        let fillColor = '#fca5a5';
+        
+        if (c.status === 'pending') {
+            markerColor = '#f59e0b';
+            fillColor = '#fde68a';
+        } else if (c.status === 'resolved') {
+            markerColor = '#10b981';
+            fillColor = '#a7f3d0';
+        } else if (c.status === 'in_progress' || c.status === 'under_review') {
+            markerColor = '#3b82f6';
+            fillColor = '#bfdbfe';
+        }
+
+        // Using circle marker for the "spot" effect
+        const marker = L.circleMarker([c.latitude, c.longitude], {
+            radius: 8,
+            fillColor: fillColor,
+            color: markerColor,
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.8
+        }).addTo(map);
+        
+        const popupContent = `
+            <div class="p-1 min-w-[200px]">
+                <div class="text-xs font-mono font-semibold text-primary-600 mb-1">${c.tracking_id}</div>
+                <h3 class="font-bold text-surface-800 text-sm mb-2 line-clamp-2">${c.title}</h3>
+                <div class="mb-3">
+                    <span class="text-[10px] font-medium px-2 py-0.5 rounded uppercase
+                        ${c.status === 'pending' ? 'bg-amber-50 text-amber-700' : 
+                          c.status === 'resolved' ? 'bg-emerald-50 text-emerald-700' : 
+                          c.status === 'rejected' ? 'bg-red-50 text-red-700' : 
+                          'bg-blue-50 text-blue-700'}">
+                        ${c.status_display}
+                    </span>
+                </div>
+                <a href="${c.url}" class="text-xs font-medium text-primary-600 hover:text-primary-700 hover:underline">View Details →</a>
+            </div>
+        `;
+        
+        marker.bindPopup(popupContent);
+    });
+</script>
 {% endblock %}
