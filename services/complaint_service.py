@@ -1,61 +1,87 @@
 """
-Complaint Service — orchestrates the full complaint lifecycle.
+Complaint Service - orchestrates the full complaint lifecycle.
 
 This service layer keeps business logic out of views and models.
 It coordinates between apps: complaints, ai_engine, departments, notifications.
 """
 
-from apps.complaints.models import Complaint, StatusUpdate
+from django.db import transaction
+from django.utils import timezone
+
 from apps.ai_engine.classifier import classify_complaint
 from apps.ai_engine.router import route_complaint
+from apps.complaints.models import Complaint, ComplaintImage, StatusUpdate
 
 
-def create_complaint(complainant, title, description, category=None, address=None,
-                     latitude=None, longitude=None, image_path=None):
+def create_complaint(
+    complainant,
+    title,
+    description,
+    category=None,
+    address=None,
+    latitude=None,
+    longitude=None,
+    image_file=None,
+    image_caption=None,
+    image_path=None,
+    run_ai=True,
+):
     """
-    Create a new complaint and run the AI pipeline:
-    1. Save the complaint
-    2. Classify via AI (text + optional image)
-    3. Auto-route to the appropriate department
-    4. Trigger notifications
+    Create a complaint and keep the full creation workflow in one place.
 
-    Args:
-        complainant: The user submitting the complaint
-        title: Complaint title
-        description: Detailed description
-        category: Optional manual category override
-        address: Location address
-        latitude: GPS latitude
-        longitude: GPS longitude
-        image_path: Optional path to uploaded image
-
-    Returns:
-        The created Complaint instance
+    The web form and future API endpoints should call this function instead of
+    duplicating complaint creation, image saving, AI metadata, and routing.
     """
-    # Step 1: Run AI classification
-    ai_result = classify_complaint(description, image_path)
+    initial_category = category or 'Other'
+    saved_image = None
 
-    # Step 2: Use AI category unless manually overridden
-    final_category = category or ai_result.get('category', 'Other')
+    with transaction.atomic():
+        complaint = Complaint.objects.create(
+            complainant=complainant,
+            title=title,
+            description=description,
+            category=initial_category,
+            department=route_complaint(initial_category),
+            address=address,
+            latitude=latitude,
+            longitude=longitude,
+        )
 
-    # Step 3: Route to department
-    department = route_complaint(final_category)
+        if image_file:
+            saved_image = ComplaintImage.objects.create(
+                complaint=complaint,
+                image=image_file,
+                caption=image_caption,
+            )
 
-    # Step 4: Create the complaint
-    complaint = Complaint.objects.create(
-        complainant=complainant,
-        title=title,
-        description=description,
-        category=final_category,
-        ai_category=ai_result.get('category'),
-        ai_confidence=ai_result.get('confidence'),
-        department=department,
-        address=address,
-        latitude=latitude,
-        longitude=longitude,
-    )
+    ai_result = {}
+    if run_ai:
+        classification_image_path = image_path
 
-    # Step 5: Trigger notifications (Phase 10)
+        if not classification_image_path and saved_image:
+            try:
+                classification_image_path = saved_image.image.path
+            except (NotImplementedError, ValueError):
+                classification_image_path = None
+
+        ai_result = classify_complaint(description, classification_image_path)
+
+    ai_category = ai_result.get('category')
+    final_category = category or ai_category or 'Other'
+
+    complaint.category = final_category
+    complaint.ai_category = ai_category
+    complaint.ai_confidence = ai_result.get('confidence')
+    complaint.department = route_complaint(final_category)
+    complaint.save(update_fields=[
+        'category',
+        'ai_category',
+        'ai_confidence',
+        'department',
+        'updated_at',
+    ])
+
+    # Notifications will be wired here in the notification workflow step.
     # notify_complaint_created(complaint)
 
     return complaint
@@ -74,24 +100,31 @@ def update_complaint_status(complaint, new_status, changed_by, remarks=None):
     Returns:
         The created StatusUpdate instance
     """
+    valid_statuses = {status for status, _ in Complaint.Status.choices}
+    if new_status not in valid_statuses:
+        raise ValueError(f"'{new_status}' is not a valid complaint status.")
+
     old_status = complaint.status
-    complaint.status = new_status
 
-    if new_status == Complaint.Status.RESOLVED:
-        from django.utils import timezone
-        complaint.resolved_at = timezone.now()
+    with transaction.atomic():
+        complaint.status = new_status
 
-    complaint.save()
+        if new_status == Complaint.Status.RESOLVED:
+            complaint.resolved_at = timezone.now()
+        elif old_status == Complaint.Status.RESOLVED:
+            complaint.resolved_at = None
 
-    status_update = StatusUpdate.objects.create(
-        complaint=complaint,
-        old_status=old_status,
-        new_status=new_status,
-        changed_by=changed_by,
-        remarks=remarks,
-    )
+        complaint.save(update_fields=['status', 'resolved_at', 'updated_at'])
 
-    # Trigger notification (Phase 10)
+        status_update = StatusUpdate.objects.create(
+            complaint=complaint,
+            old_status=old_status,
+            new_status=new_status,
+            changed_by=changed_by,
+            remarks=remarks,
+        )
+
+    # Notifications will be wired here in the notification workflow step.
     # notify_status_change(complaint, status_update)
 
     return status_update

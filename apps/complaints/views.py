@@ -12,9 +12,10 @@ from django.utils import timezone
 from django.urls import reverse
 from datetime import timedelta
 
-from .models import Complaint, ComplaintImage, StatusUpdate
+from .models import Complaint
 from .forms import ComplaintForm, ComplaintImageForm
 from apps.departments.models import Department
+from services.complaint_service import create_complaint
 
 
 def home_view(request):
@@ -29,22 +30,18 @@ def submit_complaint_view(request):
         form = ComplaintForm(request.POST)
         image_form = ComplaintImageForm(request.POST, request.FILES)
 
-        if form.is_valid():
-            # Save complaint with the logged-in user as complainant
-            complaint = form.save(commit=False)
-            complaint.complainant = request.user
-            
-            # Route to correct department based on category
-            from apps.ai_engine.router import route_complaint
-            complaint.department = route_complaint(complaint.category)
-            
-            complaint.save()
-
-            # Save image if provided
-            if image_form.is_valid() and request.FILES.get('image'):
-                image = image_form.save(commit=False)
-                image.complaint = complaint
-                image.save()
+        if form.is_valid() and image_form.is_valid():
+            complaint = create_complaint(
+                complainant=request.user,
+                title=form.cleaned_data['title'],
+                description=form.cleaned_data['description'],
+                category=form.cleaned_data.get('category'),
+                address=form.cleaned_data.get('address'),
+                latitude=form.cleaned_data.get('latitude'),
+                longitude=form.cleaned_data.get('longitude'),
+                image_file=image_form.cleaned_data.get('image'),
+                image_caption=image_form.cleaned_data.get('caption'),
+            )
 
             messages.success(
                 request,
