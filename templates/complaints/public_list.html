@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Explore Complaints — CivicAI{% endblock %}
+{% block title %}Explore Complaints - CivicAI{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
@@ -13,7 +13,7 @@
             <h1 class="text-3xl font-bold text-surface-900 mb-2">Explore Complaints</h1>
             <p class="text-surface-500">View public complaints filed by citizens across the community.</p>
         </div>
-        
+
         <!-- Filter Options (Visual Only for now) -->
         <div class="flex items-center gap-3">
             <span class="text-sm font-medium text-surface-600">Filter by Status:</span>
@@ -58,7 +58,7 @@
                 </div>
 
                 <h3 class="text-lg font-bold text-surface-900 mb-2 line-clamp-2" title="{{ c.title }}">{{ c.title }}</h3>
-                
+
                 <p class="text-sm text-surface-600 mb-4 line-clamp-3 flex-1">{{ c.description }}</p>
 
                 <div class="mt-auto pt-4 border-t border-surface-100 flex items-center justify-between text-xs text-surface-500">
@@ -89,7 +89,7 @@
             </div>
         </div>
         <div class="bg-white rounded-2xl shadow-xl border border-surface-100 overflow-hidden">
-            <div id="complaints-map" class="w-full h-[500px] z-10 relative bg-surface-50"></div>
+            <div id="complaints-map" class="w-full h-[500px] z-10 relative bg-surface-50" data-coordinates-url="{% url 'complaints:coordinates_api' %}"></div>
         </div>
     </div>
 </div>
@@ -101,61 +101,133 @@
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
-    // Initialize map centered on Kerala
-    const map = L.map('complaints-map').setView([10.8505, 76.2711], 7);
+    const defaultCenter = [10.8505, 76.2711];
+    const mapElement = document.getElementById('complaints-map');
+    const map = L.map(mapElement).setView(defaultCenter, 7);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
-        attribution: '© OpenStreetMap contributors'
+        attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
-    // Get complaints data
-    const complaintsData = JSON.parse(document.getElementById('complaints-data').textContent);
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, char => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[char]));
+    }
 
-    // Add markers
-    complaintsData.forEach(c => {
-        let markerColor = '#ef4444'; // Default to red
+    function isValidCoordinate(latitude, longitude) {
+        return Number.isFinite(latitude)
+            && Number.isFinite(longitude)
+            && latitude >= -90
+            && latitude <= 90
+            && longitude >= -180
+            && longitude <= 180;
+    }
+
+    function markerStyles(status) {
+        let markerColor = '#ef4444';
         let fillColor = '#fca5a5';
-        
-        if (c.status === 'pending') {
+
+        if (status === 'pending') {
             markerColor = '#f59e0b';
             fillColor = '#fde68a';
-        } else if (c.status === 'resolved') {
+        } else if (status === 'resolved') {
             markerColor = '#10b981';
             fillColor = '#a7f3d0';
-        } else if (c.status === 'in_progress' || c.status === 'under_review') {
+        } else if (status === 'in_progress' || status === 'under_review') {
             markerColor = '#3b82f6';
             fillColor = '#bfdbfe';
         }
 
-        // Using circle marker for the "spot" effect
-        const marker = L.circleMarker([c.latitude, c.longitude], {
-            radius: 8,
-            fillColor: fillColor,
-            color: markerColor,
-            weight: 2,
-            opacity: 1,
-            fillOpacity: 0.8
-        }).addTo(map);
-        
-        const popupContent = `
+        return { markerColor, fillColor };
+    }
+
+    function popupHtml(c) {
+        return `
             <div class="p-1 min-w-[200px]">
-                <div class="text-xs font-mono font-semibold text-primary-600 mb-1">${c.tracking_id}</div>
-                <h3 class="font-bold text-surface-800 text-sm mb-2 line-clamp-2">${c.title}</h3>
+                <div class="text-xs font-mono font-semibold text-primary-600 mb-1">${escapeHtml(c.tracking_id)}</div>
+                <h3 class="font-bold text-surface-800 text-sm mb-2 line-clamp-2">${escapeHtml(c.title)}</h3>
                 <div class="mb-3">
                     <span class="text-[10px] font-medium px-2 py-0.5 rounded uppercase
-                        ${c.status === 'pending' ? 'bg-amber-50 text-amber-700' : 
-                          c.status === 'resolved' ? 'bg-emerald-50 text-emerald-700' : 
-                          c.status === 'rejected' ? 'bg-red-50 text-red-700' : 
+                        ${c.status === 'pending' ? 'bg-amber-50 text-amber-700' :
+                          c.status === 'resolved' ? 'bg-emerald-50 text-emerald-700' :
+                          c.status === 'rejected' ? 'bg-red-50 text-red-700' :
                           'bg-blue-50 text-blue-700'}">
-                        ${c.status_display}
+                        ${escapeHtml(c.status_display)}
                     </span>
                 </div>
-                <a href="${c.url}" class="text-xs font-medium text-primary-600 hover:text-primary-700 hover:underline">View Details →</a>
+                <a href="${escapeHtml(c.url)}" class="text-xs font-medium text-primary-600 hover:text-primary-700 hover:underline">View Details -></a>
             </div>
         `;
-        
-        marker.bindPopup(popupContent);
+    }
+
+    function embeddedComplaintData() {
+        const dataElement = document.getElementById('complaints-data');
+        const parsedData = JSON.parse(dataElement.textContent || '[]');
+        return Array.isArray(parsedData) ? parsedData : [];
+    }
+
+    async function fetchComplaintData() {
+        const fallbackData = embeddedComplaintData();
+
+        try {
+            const response = await fetch(mapElement.dataset.coordinatesUrl, {
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin'
+            });
+
+            if (!response.ok) {
+                throw new Error(`Coordinate API returned ${response.status}`);
+            }
+
+            const apiData = await response.json();
+            return Array.isArray(apiData.complaints) ? apiData.complaints : fallbackData;
+        } catch (error) {
+            console.warn('Using embedded complaint coordinates because the API request failed.', error);
+            return fallbackData;
+        }
+    }
+
+    function renderComplaintMarkers(complaintsData) {
+        const bounds = [];
+
+        complaintsData.forEach(c => {
+            const latitude = Number(c.latitude);
+            const longitude = Number(c.longitude);
+
+            if (!isValidCoordinate(latitude, longitude)) {
+                return;
+            }
+
+            const { markerColor, fillColor } = markerStyles(c.status);
+            const marker = L.circleMarker([latitude, longitude], {
+                radius: 8,
+                fillColor: fillColor,
+                color: markerColor,
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.8
+            }).addTo(map);
+
+            marker.bindPopup(popupHtml(c));
+            bounds.push([latitude, longitude]);
+        });
+
+        if (bounds.length === 1) {
+            map.setView(bounds[0], 14);
+        } else if (bounds.length > 1) {
+            map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        const complaintsData = await fetchComplaintData();
+        renderComplaintMarkers(complaintsData);
     });
 </script>
 {% endblock %}

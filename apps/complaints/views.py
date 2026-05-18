@@ -6,8 +6,10 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib import messages
+from django.http import JsonResponse
 from django.db.models import Count, Q
 from django.utils import timezone
+from django.urls import reverse
 from datetime import timedelta
 
 from .models import Complaint, ComplaintImage, StatusUpdate
@@ -60,30 +62,87 @@ def submit_complaint_view(request):
         'image_form': image_form,
     })
 
+def _coordinate_to_float(value):
+    """Return a JavaScript-safe coordinate number, or None when unavailable."""
+    if value in (None, ''):
+        return None
 
-import json
-from django.urls import reverse
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _is_valid_coordinate_pair(latitude, longitude):
+    return (
+        latitude is not None
+        and longitude is not None
+        and -90 <= latitude <= 90
+        and -180 <= longitude <= 180
+    )
+
+
+def _complaints_map_payload(complaints):
+    """Serialize complaint location data for templates and the JSON endpoint."""
+    payload = []
+
+    for complaint in complaints:
+        latitude = _coordinate_to_float(complaint.latitude)
+        longitude = _coordinate_to_float(complaint.longitude)
+
+        payload.append({
+            'tracking_id': complaint.tracking_id,
+            'title': complaint.title,
+            'status': complaint.status,
+            'status_display': complaint.get_status_display(),
+            'latitude': latitude,
+            'longitude': longitude,
+            'has_valid_coordinates': _is_valid_coordinate_pair(latitude, longitude),
+            'url': reverse('complaints:detail', kwargs={'tracking_id': complaint.tracking_id}),
+        })
+
+    return payload
+
+
+def complaint_coordinates_api(request):
+    """Return complaint coordinates for Leaflet marker rendering."""
+    complaints = Complaint.objects.only(
+        'tracking_id',
+        'title',
+        'status',
+        'latitude',
+        'longitude',
+    ).order_by('-created_at')
+    complaints_data = _complaints_map_payload(complaints)
+
+    return JsonResponse({
+        'count': len(complaints_data),
+        'mapped_count': sum(1 for c in complaints_data if c['has_valid_coordinates']),
+        'complaints': complaints_data,
+    })
+
 
 def public_complaints_view(request):
     """Show a gallery of all public complaints and a map."""
     complaints = Complaint.objects.select_related('complainant').prefetch_related('images').order_by('-created_at')
-
-    complaints_data = []
-    for c in complaints:
-        if c.latitude is not None and c.longitude is not None:
-            complaints_data.append({
-                'tracking_id': c.tracking_id,
-                'title': c.title,
-                'status': c.status,
-                'status_display': c.get_status_display(),
-                'latitude': float(c.latitude),
-                'longitude': float(c.longitude),
-                'url': reverse('complaints:detail', kwargs={'tracking_id': c.tracking_id})
-            })
+    complaints_data = _complaints_map_payload(complaints)
 
     return render(request, 'complaints/public_list.html', {
         'complaints': complaints,
-        'complaints_json': json.dumps(complaints_data),
+        'complaints_json': complaints_data,
+        'mapped_count': sum(1 for c in complaints_data if c['has_valid_coordinates']),
+    })
+
+
+def complaint_map_view(request):
+    """Show a dedicated public map of complaint locations."""
+    complaints = Complaint.objects.order_by('-created_at')
+    complaints_data = _complaints_map_payload(complaints)
+
+    return render(request, 'complaints/map.html', {
+        'complaints': complaints,
+        'complaints_json': complaints_data,
+        'mapped_count': sum(1 for c in complaints_data if c['has_valid_coordinates']),
     })
 
 

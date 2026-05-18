@@ -2,6 +2,8 @@
 Forms for complaint submission.
 """
 
+from decimal import Decimal
+
 from django import forms
 from .models import Complaint, ComplaintImage
 
@@ -57,6 +59,27 @@ class ComplaintForm(forms.ModelForm):
             'latitude': forms.HiddenInput(),
             'longitude': forms.HiddenInput(),
         }
+
+    def clean(self):
+        cleaned_data = super().clean()
+        latitude = cleaned_data.get('latitude')
+        longitude = cleaned_data.get('longitude')
+
+        if latitude is None and longitude is None:
+            return cleaned_data
+
+        if latitude is None or longitude is None:
+            raise forms.ValidationError(
+                'Please select a complete location with both latitude and longitude.'
+            )
+
+        if not Decimal('-90') <= latitude <= Decimal('90'):
+            self.add_error('latitude', 'Latitude must be between -90 and 90.')
+
+        if not Decimal('-180') <= longitude <= Decimal('180'):
+            self.add_error('longitude', 'Longitude must be between -180 and 180.')
+
+        return cleaned_data
 
 
 

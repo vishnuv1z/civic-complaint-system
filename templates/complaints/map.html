@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Complaints Map — CivicAI{% endblock %}
+{% block title %}Complaints Map - CivicAI{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
@@ -22,13 +22,13 @@
 
     <!-- Map Container -->
     <div class="bg-white rounded-2xl shadow-xl border border-surface-100 overflow-hidden">
-        <div id="complaints-map" class="w-full h-[600px] z-10 relative bg-surface-50"></div>
+        <div id="complaints-map" class="w-full h-[600px] z-10 relative bg-surface-50" data-coordinates-url="{% url 'complaints:coordinates_api' %}"></div>
     </div>
 
     <!-- Stats bar -->
     <div class="grid grid-cols-3 gap-4 mt-6">
         <div class="bg-white rounded-xl border border-surface-100 px-5 py-4 text-center">
-            <div class="text-2xl font-bold text-amber-600">{{ complaints|length }}</div>
+            <div class="text-2xl font-bold text-amber-600">{{ mapped_count }}</div>
             <p class="text-xs text-surface-400 mt-0.5">Mapped Complaints</p>
         </div>
         <div class="bg-white rounded-xl border border-surface-100 px-5 py-4 text-center">
@@ -36,7 +36,7 @@
             <p class="text-xs text-surface-400 mt-0.5">Districts Covered</p>
         </div>
         <div class="bg-white rounded-xl border border-surface-100 px-5 py-4 text-center">
-            <div class="text-2xl font-bold text-emerald-600">—</div>
+            <div class="text-2xl font-bold text-emerald-600">-</div>
             <p class="text-xs text-surface-400 mt-0.5">Hotspot Areas</p>
         </div>
     </div>
@@ -49,45 +49,106 @@
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
-    // Initialize map centered on Kerala
-    const map = L.map('complaints-map').setView([10.8505, 76.2711], 7);
+    const defaultCenter = [10.8505, 76.2711];
+    const mapElement = document.getElementById('complaints-map');
+    const map = L.map(mapElement).setView(defaultCenter, 7);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
-        attribution: '© OpenStreetMap contributors'
+        attribution: '&copy; OpenStreetMap contributors'
     }).addTo(map);
 
-    // Get complaints data
-    const complaintsData = JSON.parse(document.getElementById('complaints-data').textContent);
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, char => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[char]));
+    }
 
-    // Add markers
-    complaintsData.forEach(c => {
-        let markerColor = 'blue';
-        if (c.status === 'pending') markerColor = 'orange';
-        if (c.status === 'resolved') markerColor = 'green';
-        if (c.status === 'rejected') markerColor = 'red';
+    function isValidCoordinate(latitude, longitude) {
+        return Number.isFinite(latitude)
+            && Number.isFinite(longitude)
+            && latitude >= -90
+            && latitude <= 90
+            && longitude >= -180
+            && longitude <= 180;
+    }
 
-        // Using default Leaflet marker, customized via popup
-        const marker = L.marker([c.latitude, c.longitude]).addTo(map);
-        
-        const popupContent = `
+    function popupHtml(c) {
+        return `
             <div class="p-1 min-w-[200px]">
-                <div class="text-xs font-mono font-semibold text-primary-600 mb-1">${c.tracking_id}</div>
-                <h3 class="font-bold text-surface-800 text-sm mb-2 line-clamp-2">${c.title}</h3>
+                <div class="text-xs font-mono font-semibold text-primary-600 mb-1">${escapeHtml(c.tracking_id)}</div>
+                <h3 class="font-bold text-surface-800 text-sm mb-2 line-clamp-2">${escapeHtml(c.title)}</h3>
                 <div class="mb-3">
                     <span class="text-[10px] font-medium px-2 py-0.5 rounded uppercase
-                        ${c.status === 'pending' ? 'bg-amber-50 text-amber-700' : 
-                          c.status === 'resolved' ? 'bg-emerald-50 text-emerald-700' : 
-                          c.status === 'rejected' ? 'bg-red-50 text-red-700' : 
+                        ${c.status === 'pending' ? 'bg-amber-50 text-amber-700' :
+                          c.status === 'resolved' ? 'bg-emerald-50 text-emerald-700' :
+                          c.status === 'rejected' ? 'bg-red-50 text-red-700' :
                           'bg-blue-50 text-blue-700'}">
-                        ${c.status_display}
+                        ${escapeHtml(c.status_display)}
                     </span>
                 </div>
-                <a href="${c.url}" class="text-xs font-medium text-primary-600 hover:text-primary-700 hover:underline">View Details →</a>
+                <a href="${escapeHtml(c.url)}" class="text-xs font-medium text-primary-600 hover:text-primary-700 hover:underline">View Details -></a>
             </div>
         `;
-        
-        marker.bindPopup(popupContent);
+    }
+
+    function embeddedComplaintData() {
+        const dataElement = document.getElementById('complaints-data');
+        const parsedData = JSON.parse(dataElement.textContent || '[]');
+        return Array.isArray(parsedData) ? parsedData : [];
+    }
+
+    async function fetchComplaintData() {
+        const fallbackData = embeddedComplaintData();
+
+        try {
+            const response = await fetch(mapElement.dataset.coordinatesUrl, {
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin'
+            });
+
+            if (!response.ok) {
+                throw new Error(`Coordinate API returned ${response.status}`);
+            }
+
+            const apiData = await response.json();
+            return Array.isArray(apiData.complaints) ? apiData.complaints : fallbackData;
+        } catch (error) {
+            console.warn('Using embedded complaint coordinates because the API request failed.', error);
+            return fallbackData;
+        }
+    }
+
+    function renderComplaintMarkers(complaintsData) {
+        const bounds = [];
+
+        complaintsData.forEach(c => {
+            const latitude = Number(c.latitude);
+            const longitude = Number(c.longitude);
+
+            if (!isValidCoordinate(latitude, longitude)) {
+                return;
+            }
+
+            const marker = L.marker([latitude, longitude]).addTo(map);
+            marker.bindPopup(popupHtml(c));
+            bounds.push([latitude, longitude]);
+        });
+
+        if (bounds.length === 1) {
+            map.setView(bounds[0], 14);
+        } else if (bounds.length > 1) {
+            map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        const complaintsData = await fetchComplaintData();
+        renderComplaintMarkers(complaintsData);
     });
 </script>
 {% endblock %}
