@@ -1,5 +1,5 @@
 /**
- * CivicAI — Main JavaScript
+ * Civiq — Main JavaScript
  * Shared utilities and interactions
  */
 
