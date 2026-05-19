@@ -1,0 +1,272 @@
+{% extends 'base.html' %}
+{% block title %}Admin Dashboard — Civiq{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-surface-900">Dashboard</h1>
+            <p class="text-surface-500 text-sm mt-1">Complaint analytics & management overview</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="{% url 'admin:index' %}" class="px-4 py-2 rounded-xl text-sm font-medium text-surface-600 border border-surface-200 hover:bg-surface-50 transition-all">
+                Django Admin →
+            </a>
+        </div>
+    </div>
+
+    <!-- Stat Cards Row -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <!-- Total -->
+        <div class="bg-white rounded-2xl border border-surface-100 p-5 hover:shadow-lg transition-shadow duration-300">
+            <div class="flex items-center justify-between mb-3">
+                <div class="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                </div>
+                <span class="text-xs font-medium text-surface-400">Total</span>
+            </div>
+            <div class="text-2xl font-bold text-surface-900">{{ total }}</div>
+            <p class="text-xs text-surface-400 mt-1">{{ this_month }} this month</p>
+        </div>
+
+        <!-- Pending -->
+        <div class="bg-white rounded-2xl border border-surface-100 p-5 hover:shadow-lg transition-shadow duration-300">
+            <div class="flex items-center justify-between mb-3">
+                <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <span class="text-xs font-medium text-amber-500">Pending</span>
+            </div>
+            <div class="text-2xl font-bold text-surface-900">{{ pending }}</div>
+            <p class="text-xs text-surface-400 mt-1">Awaiting action</p>
+        </div>
+
+        <!-- In Progress -->
+        <div class="bg-white rounded-2xl border border-surface-100 p-5 hover:shadow-lg transition-shadow duration-300">
+            <div class="flex items-center justify-between mb-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                </div>
+                <span class="text-xs font-medium text-blue-500">Active</span>
+            </div>
+            <div class="text-2xl font-bold text-surface-900">{{ under_review|add:in_progress|add:forwarded }}</div>
+            <p class="text-xs text-surface-400 mt-1">Review, forwarded, in progress</p>
+        </div>
+
+        <!-- Resolved -->
+        <div class="bg-white rounded-2xl border border-surface-100 p-5 hover:shadow-lg transition-shadow duration-300">
+            <div class="flex items-center justify-between mb-3">
+                <div class="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center">
+                    <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                </div>
+                <span class="text-xs font-medium text-emerald-500">Resolved</span>
+            </div>
+            <div class="text-2xl font-bold text-surface-900">{{ resolved }}</div>
+            <p class="text-xs text-surface-400 mt-1">{{ resolution_rate }}% resolution rate</p>
+        </div>
+    </div>
+
+    <!-- Charts + Stats Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <!-- Status Breakdown Chart -->
+        <div class="lg:col-span-2 bg-white rounded-2xl border border-surface-100 p-6">
+            <h2 class="text-sm font-semibold text-surface-500 uppercase tracking-wider mb-4">Status Breakdown</h2>
+            <div class="space-y-3">
+                {% if total > 0 %}
+                <!-- Pending -->
+                <div class="flex items-center gap-3">
+                    <span class="w-24 text-xs font-medium text-surface-600">Pending</span>
+                    <div class="flex-1 bg-surface-100 rounded-full h-3 overflow-hidden">
+                        <div class="h-full bg-amber-400 rounded-full transition-all duration-700" style="width: {% widthratio pending total 100 %}%"></div>
+                    </div>
+                    <span class="w-8 text-xs font-bold text-surface-700 text-right">{{ pending }}</span>
+                </div>
+                <!-- Under Review -->
+                <div class="flex items-center gap-3">
+                    <span class="w-24 text-xs font-medium text-surface-600">Under Review</span>
+                    <div class="flex-1 bg-surface-100 rounded-full h-3 overflow-hidden">
+                        <div class="h-full bg-blue-400 rounded-full transition-all duration-700" style="width: {% widthratio under_review total 100 %}%"></div>
+                    </div>
+                    <span class="w-8 text-xs font-bold text-surface-700 text-right">{{ under_review }}</span>
+                </div>
+                <!-- In Progress -->
+                <div class="flex items-center gap-3">
+                    <span class="w-24 text-xs font-medium text-surface-600">Forwarded</span>
+                    <div class="flex-1 bg-surface-100 rounded-full h-3 overflow-hidden">
+                        <div class="h-full bg-emerald-400 rounded-full transition-all duration-700" style="width: {% widthratio forwarded total 100 %}%"></div>
+                    </div>
+                    <span class="w-8 text-xs font-bold text-surface-700 text-right">{{ forwarded }}</span>
+                </div>
+                <!-- In Progress -->
+                <div class="flex items-center gap-3">
+                    <span class="w-24 text-xs font-medium text-surface-600">In Progress</span>
+                    <div class="flex-1 bg-surface-100 rounded-full h-3 overflow-hidden">
+                        <div class="h-full bg-indigo-400 rounded-full transition-all duration-700" style="width: {% widthratio in_progress total 100 %}%"></div>
+                    </div>
+                    <span class="w-8 text-xs font-bold text-surface-700 text-right">{{ in_progress }}</span>
+                </div>
+                <!-- Resolved -->
+                <div class="flex items-center gap-3">
+                    <span class="w-24 text-xs font-medium text-surface-600">Resolved</span>
+                    <div class="flex-1 bg-surface-100 rounded-full h-3 overflow-hidden">
+                        <div class="h-full bg-emerald-400 rounded-full transition-all duration-700" style="width: {% widthratio resolved total 100 %}%"></div>
+                    </div>
+                    <span class="w-8 text-xs font-bold text-surface-700 text-right">{{ resolved }}</span>
+                </div>
+                <!-- Rejected -->
+                <div class="flex items-center gap-3">
+                    <span class="w-24 text-xs font-medium text-surface-600">Rejected</span>
+                    <div class="flex-1 bg-surface-100 rounded-full h-3 overflow-hidden">
+                        <div class="h-full bg-red-400 rounded-full transition-all duration-700" style="width: {% widthratio rejected total 100 %}%"></div>
+                    </div>
+                    <span class="w-8 text-xs font-bold text-surface-700 text-right">{{ rejected }}</span>
+                </div>
+                {% else %}
+                <p class="text-sm text-surface-400 text-center py-8">No complaints yet</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Quick Stats Sidebar -->
+        <div class="space-y-4">
+            <!-- This Week -->
+            <div class="bg-white rounded-2xl border border-surface-100 p-5">
+                <h3 class="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-3">This Week</h3>
+                <div class="text-3xl font-bold text-surface-900">{{ this_week }}</div>
+                <p class="text-xs text-surface-400 mt-1">new complaints</p>
+            </div>
+            <!-- Resolution Rate -->
+            <div class="bg-white rounded-2xl border border-surface-100 p-5">
+                <h3 class="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-3">Resolution Rate</h3>
+                <div class="text-3xl font-bold text-emerald-600">{{ resolution_rate }}%</div>
+                <div class="mt-2 bg-surface-100 rounded-full h-2 overflow-hidden">
+                    <div class="h-full bg-emerald-400 rounded-full" style="width: {{ resolution_rate }}%"></div>
+                </div>
+            </div>
+            <!-- Priority Breakdown -->
+            <div class="bg-white rounded-2xl border border-surface-100 p-5">
+                <h3 class="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-3">By Priority</h3>
+                <div class="space-y-2">
+                    {% for p in priority_stats %}
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="font-medium capitalize
+                            {% if p.priority == 'critical' %}text-red-600
+                            {% elif p.priority == 'high' %}text-orange-600
+                            {% elif p.priority == 'medium' %}text-amber-600
+                            {% else %}text-surface-600
+                            {% endif %}">{{ p.priority }}</span>
+                        <span class="font-bold text-surface-800">{{ p.count }}</span>
+                    </div>
+                    {% empty %}
+                    <p class="text-xs text-surface-400">No data</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Category + Department Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <!-- Categories -->
+        <div class="bg-white rounded-2xl border border-surface-100 p-6">
+            <h2 class="text-sm font-semibold text-surface-500 uppercase tracking-wider mb-4">Top Categories</h2>
+            <div class="space-y-3">
+                {% for cat in category_stats %}
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <div class="w-2.5 h-2.5 rounded-full
+                            {% cycle 'bg-blue-400' 'bg-emerald-400' 'bg-amber-400' 'bg-purple-400' 'bg-red-400' 'bg-cyan-400' 'bg-orange-400' 'bg-pink-400' %}"></div>
+                        <span class="text-sm font-medium text-surface-700">{{ cat.category|default:"Uncategorized" }}</span>
+                    </div>
+                    <span class="text-sm font-bold text-surface-800">{{ cat.count }}</span>
+                </div>
+                {% empty %}
+                <p class="text-sm text-surface-400 text-center py-4">No complaints yet</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Department Workload -->
+        <div class="bg-white rounded-2xl border border-surface-100 p-6">
+            <h2 class="text-sm font-semibold text-surface-500 uppercase tracking-wider mb-4">Department Workload</h2>
+            <div class="space-y-3">
+                {% for dept in department_stats %}
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm font-medium text-surface-700">{{ dept.name }}</p>
+                        <p class="text-xs text-surface-400">{{ dept.pending_complaints }} pending · {{ dept.resolved_complaints }} resolved</p>
+                    </div>
+                    <span class="text-sm font-bold text-surface-800 bg-surface-50 px-2.5 py-1 rounded-lg">{{ dept.total_complaints }}</span>
+                </div>
+                {% empty %}
+                <p class="text-sm text-surface-400 text-center py-4">No departments configured</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Complaints Table -->
+    <div class="bg-white rounded-2xl border border-surface-100 overflow-hidden">
+        <div class="px-6 py-4 border-b border-surface-100 flex items-center justify-between">
+            <h2 class="text-sm font-semibold text-surface-500 uppercase tracking-wider">Recent Complaints</h2>
+            <a href="{% url 'admin:index' %}" class="text-xs font-medium text-primary-600 hover:text-primary-700">View All →</a>
+        </div>
+
+        {% if recent_complaints %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-surface-50 text-left">
+                        <th class="px-6 py-3 text-xs font-semibold text-surface-500 uppercase tracking-wider">Tracking ID</th>
+                        <th class="px-6 py-3 text-xs font-semibold text-surface-500 uppercase tracking-wider">Title</th>
+                        <th class="px-6 py-3 text-xs font-semibold text-surface-500 uppercase tracking-wider">Category</th>
+                        <th class="px-6 py-3 text-xs font-semibold text-surface-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-xs font-semibold text-surface-500 uppercase tracking-wider">Priority</th>
+                        <th class="px-6 py-3 text-xs font-semibold text-surface-500 uppercase tracking-wider">Date</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-surface-100">
+                    {% for c in recent_complaints %}
+                    <tr class="hover:bg-surface-50/50 transition-colors cursor-pointer" onclick="window.location='{% url 'complaints:detail' c.tracking_id %}'">
+                        <td class="px-6 py-4">
+                            <span class="text-xs font-mono font-semibold text-primary-600 bg-primary-50 px-2 py-0.5 rounded">{{ c.tracking_id }}</span>
+                        </td>
+                        <td class="px-6 py-4 font-medium text-surface-800 max-w-[200px] truncate">{{ c.title }}</td>
+                        <td class="px-6 py-4 text-surface-600">{{ c.category|default:"—" }}</td>
+                        <td class="px-6 py-4">
+                            <span class="text-xs font-medium px-2 py-0.5 rounded
+                                {% if c.status == 'pending' %}bg-amber-50 text-amber-700
+                                {% elif c.status == 'under_review' %}bg-blue-50 text-blue-700
+                                {% elif c.status == 'in_progress' %}bg-indigo-50 text-indigo-700
+                                {% elif c.status == 'resolved' %}bg-emerald-50 text-emerald-700
+                                {% elif c.status == 'rejected' %}bg-red-50 text-red-700
+                                {% else %}bg-surface-100 text-surface-600
+                                {% endif %}">
+                                {{ c.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4">
+                            <span class="text-xs font-medium
+                                {% if c.priority == 'critical' %}text-red-600
+                                {% elif c.priority == 'high' %}text-orange-600
+                                {% elif c.priority == 'medium' %}text-amber-600
+                                {% else %}text-surface-500
+                                {% endif %}">
+                                {{ c.get_priority_display }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 text-surface-500">{{ c.created_at|date:"M d, Y" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <p class="text-sm text-surface-400">No complaints submitted yet</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% block title %}Department Queue - Civiq{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+        <div>
+            <h1 class="text-3xl font-bold text-surface-900">Department Queue</h1>
+            <p class="text-surface-500 text-sm mt-1">Review complaints before sending them to official authority contacts.</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white border border-surface-100 rounded-xl p-4">
+            <p class="text-xs font-medium text-surface-400 uppercase">Pending</p>
+            <div class="text-2xl font-bold text-amber-600 mt-1">{{ pending_count }}</div>
+        </div>
+        <div class="bg-white border border-surface-100 rounded-xl p-4">
+            <p class="text-xs font-medium text-surface-400 uppercase">Under Review</p>
+            <div class="text-2xl font-bold text-blue-600 mt-1">{{ review_count }}</div>
+        </div>
+        <div class="bg-white border border-surface-100 rounded-xl p-4">
+            <p class="text-xs font-medium text-surface-400 uppercase">Forwarded</p>
+            <div class="text-2xl font-bold text-emerald-600 mt-1">{{ forwarded_count }}</div>
+        </div>
+        <div class="bg-white border border-surface-100 rounded-xl p-4">
+            <p class="text-xs font-medium text-surface-400 uppercase">Rejected</p>
+            <div class="text-2xl font-bold text-red-600 mt-1">{{ rejected_count }}</div>
+        </div>
+    </div>
+
+    <form method="get" class="bg-white border border-surface-100 rounded-xl p-4 mb-6 grid grid-cols-1 md:grid-cols-4 gap-3">
+        <select name="status" class="form-input">
+            <option value="">All statuses</option>
+            {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <select name="priority" class="form-input">
+            <option value="">All priorities</option>
+            {% for value, label in priority_choices %}
+            <option value="{{ value }}" {% if priority_filter == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <select name="category" class="form-input">
+            <option value="">All categories</option>
+            {% for category in categories %}
+            <option value="{{ category }}" {% if category_filter == category %}selected{% endif %}>{{ category }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 transition-colors">Apply Filters</button>
+    </form>
+
+    <div class="bg-white border border-surface-100 rounded-xl overflow-hidden">
+        {% if complaints %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-surface-50 text-left">
+                        <th class="px-5 py-3 text-xs font-semibold text-surface-500 uppercase">Tracking ID</th>
+                        <th class="px-5 py-3 text-xs font-semibold text-surface-500 uppercase">Complaint</th>
+                        <th class="px-5 py-3 text-xs font-semibold text-surface-500 uppercase">Department</th>
+                        <th class="px-5 py-3 text-xs font-semibold text-surface-500 uppercase">Priority</th>
+                        <th class="px-5 py-3 text-xs font-semibold text-surface-500 uppercase">Status</th>
+                        <th class="px-5 py-3 text-xs font-semibold text-surface-500 uppercase">Submitted</th>
+                        <th class="px-5 py-3 text-xs font-semibold text-surface-500 uppercase">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-surface-100">
+                    {% for complaint in complaints %}
+                    <tr class="hover:bg-surface-50/60">
+                        <td class="px-5 py-4">
+                            <span class="font-mono text-xs font-semibold text-primary-600 bg-primary-50 px-2 py-1 rounded">{{ complaint.tracking_id }}</span>
+                        </td>
+                        <td class="px-5 py-4 max-w-sm">
+                            <p class="font-semibold text-surface-900 truncate">{{ complaint.title }}</p>
+                            <p class="text-xs text-surface-500 truncate">{{ complaint.category|default:"Uncategorized" }}</p>
+                        </td>
+                        <td class="px-5 py-4 text-surface-600">{{ complaint.department.name|default:"Unassigned" }}</td>
+                        <td class="px-5 py-4">
+                            <span class="text-xs font-semibold px-2 py-1 rounded
+                                {% if complaint.priority == 'critical' %}bg-red-50 text-red-700
+                                {% elif complaint.priority == 'high' %}bg-orange-50 text-orange-700
+                                {% elif complaint.priority == 'medium' %}bg-amber-50 text-amber-700
+                                {% else %}bg-surface-100 text-surface-600
+                                {% endif %}">
+                                {{ complaint.get_priority_display }}
+                            </span>
+                        </td>
+                        <td class="px-5 py-4">
+                            <span class="text-xs font-semibold px-2 py-1 rounded
+                                {% if complaint.status == 'pending' %}bg-amber-50 text-amber-700
+                                {% elif complaint.status == 'under_review' %}bg-blue-50 text-blue-700
+                                {% elif complaint.status == 'forwarded' %}bg-emerald-50 text-emerald-700
+                                {% elif complaint.status == 'rejected' %}bg-red-50 text-red-700
+                                {% else %}bg-surface-100 text-surface-700
+                                {% endif %}">
+                                {{ complaint.get_status_display }}
+                            </span>
+                        </td>
+                        <td class="px-5 py-4 text-surface-500">{{ complaint.created_at|date:"M d, Y" }}</td>
+                        <td class="px-5 py-4">
+                            <a href="{% url 'complaints:staff_review' complaint.tracking_id %}" class="text-sm font-semibold text-primary-600 hover:text-primary-700">Review</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <p class="text-sm text-surface-400">No complaints match these filters.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

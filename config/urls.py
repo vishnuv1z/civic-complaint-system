@@ -23,6 +23,7 @@ urlpatterns = [
     path('', include('apps.complaints.urls', namespace='complaints')),
     path('accounts/', include('apps.accounts.urls', namespace='accounts')),
     path('departments/', include('apps.departments.urls', namespace='departments')),
+    path('ai/', include('apps.ai_engine.urls', namespace='ai_engine')),
 
     # REST API (will be expanded in Phase 6)
     # path('api/', include('apps.complaints.api_urls', namespace='api-complaints')),

@@ -7,28 +7,28 @@
                     <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center">
                         <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
                     </div>
-                    <span class="text-lg font-bold text-white">CivicAI</span>
+                    <span class="text-lg font-bold text-white">Civiq</span>
                 </div>
-                <p class="text-surface-400 text-sm leading-relaxed max-w-md">AI-powered civic complaint management. Submit complaints via text or image — our AI classifies and routes them to the right authorities.</p>
+                <p class="text-surface-400 text-sm leading-relaxed max-w-md">AI-powered civic complaint management. Submit complaints via text or image, our AI classifies and routes them to the right authorities.</p>
             </div>
             <div>
                 <h3 class="text-white font-semibold text-sm uppercase tracking-wider mb-4">Quick Links</h3>
                 <ul class="space-y-2 text-sm">
                     <li><a href="{% url 'complaints:home' %}" class="text-surface-400 hover:text-white transition-colors">Home</a></li>
-                    <li><a href="#" class="text-surface-400 hover:text-white transition-colors">Submit Complaint</a></li>
-                    <li><a href="#" class="text-surface-400 hover:text-white transition-colors">Track Complaint</a></li>
+                    <li><a href="{% url 'complaints:submit' %}" class="text-surface-400 hover:text-white transition-colors">Submit Complaint</a></li>
+                    <li><a href="{% url 'complaints:list' %}" class="text-surface-400 hover:text-white transition-colors">Track Complaint</a></li>
                 </ul>
             </div>
             <div>
                 <h3 class="text-white font-semibold text-sm uppercase tracking-wider mb-4">Contact</h3>
                 <ul class="space-y-2 text-sm text-surface-400">
-                    <li>📧 support@civicai.gov</li>
+                    <li>📧 support@civiq.gov</li>
                     <li>📞 1800-XXX-XXXX</li>
                 </ul>
             </div>
         </div>
         <div class="border-t border-surface-800 mt-10 pt-6 text-center">
-            <p class="text-surface-500 text-xs">&copy; {% now "Y" %} CivicAI. Built with ❤️ for better civic governance.</p>
+            <p class="text-surface-500 text-xs">&copy; {% now "Y" %} Civiq. Built with ❤️ for better civic governance.</p>
         </div>
     </div>
 </footer>
