@@ -5,12 +5,79 @@ This service layer keeps business logic out of views and models.
 It coordinates between apps: complaints, ai_engine, departments, notifications.
 """
 
+from django.conf import settings
+from django.core.mail import send_mail
 from django.db import transaction
 from django.utils import timezone
 
 from apps.ai_engine.classifier import classify_complaint
 from apps.ai_engine.router import route_complaint
-from apps.complaints.models import Complaint, ComplaintImage, StatusUpdate
+from apps.complaints.models import (
+    Complaint,
+    ComplaintForwardLog,
+    ComplaintImage,
+    StatusUpdate,
+)
+
+
+HIGH_PRIORITY_CATEGORIES = {
+    'Electricity',
+    'Drainage & Sewage',
+    'Public Safety',
+    'Traffic Signal',
+}
+
+MEDIUM_PRIORITY_CATEGORIES = {
+    'Road & Pothole',
+    'Water Supply',
+    'Garbage & Sanitation',
+    'Street Light',
+    'Public Transport',
+    'Illegal Construction',
+}
+
+CRITICAL_KEYWORDS = {
+    'accident',
+    'collapse',
+    'danger',
+    'electrocution',
+    'emergency',
+    'fire',
+    'injury',
+    'live wire',
+    'life threatening',
+    'severe',
+}
+
+HIGH_KEYWORDS = {
+    'blocked',
+    'burst',
+    'contaminated',
+    'flood',
+    'hazard',
+    'overflow',
+    'school',
+    'urgent',
+}
+
+
+def assign_priority(category, title='', description=''):
+    """Assign initial complaint priority from category and seriousness keywords."""
+    text = f"{title or ''} {description or ''}".lower()
+
+    if any(keyword in text for keyword in CRITICAL_KEYWORDS):
+        return Complaint.Priority.CRITICAL
+
+    if any(keyword in text for keyword in HIGH_KEYWORDS):
+        return Complaint.Priority.HIGH
+
+    if category in HIGH_PRIORITY_CATEGORIES:
+        return Complaint.Priority.HIGH
+
+    if category in MEDIUM_PRIORITY_CATEGORIES:
+        return Complaint.Priority.MEDIUM
+
+    return Complaint.Priority.LOW
 
 
 def create_complaint(
@@ -29,8 +96,8 @@ def create_complaint(
     """
     Create a complaint and keep the full creation workflow in one place.
 
-    The web form and future API endpoints should call this function instead of
-    duplicating complaint creation, image saving, AI metadata, and routing.
+    Complaints enter the department triage queue only. They are not sent to
+    authority contacts until department staff reviews and forwards them.
     """
     initial_category = category or 'Other'
     saved_image = None
@@ -42,6 +109,7 @@ def create_complaint(
             description=description,
             category=initial_category,
             department=route_complaint(initial_category),
+            priority=assign_priority(initial_category, title, description),
             address=address,
             latitude=latitude,
             longitude=longitude,
@@ -73,11 +141,13 @@ def create_complaint(
     complaint.ai_category = ai_category
     complaint.ai_confidence = ai_result.get('confidence')
     complaint.department = route_complaint(final_category)
+    complaint.priority = assign_priority(final_category, title, description)
     complaint.save(update_fields=[
         'category',
         'ai_category',
         'ai_confidence',
         'department',
+        'priority',
         'updated_at',
     ])
 
@@ -128,3 +198,96 @@ def update_complaint_status(complaint, new_status, changed_by, remarks=None):
     # notify_status_change(complaint, status_update)
 
     return status_update
+
+
+def build_authority_forward_message(complaint, remarks=''):
+    """Build the email body sent after department staff triage."""
+    location_lines = []
+    if complaint.address:
+        location_lines.append(f"Address: {complaint.address}")
+    if complaint.latitude is not None and complaint.longitude is not None:
+        location_lines.append(f"Coordinates: {complaint.latitude}, {complaint.longitude}")
+
+    image_lines = [
+        image.image.url for image in complaint.images.all()
+        if image.image
+    ]
+
+    lines = [
+        f"Tracking ID: {complaint.tracking_id}",
+        f"Title: {complaint.title}",
+        f"Category: {complaint.category or 'Uncategorized'}",
+        f"Priority: {complaint.get_priority_display()}",
+        f"Submitted On: {complaint.created_at:%Y-%m-%d %H:%M}",
+        "",
+        "Description:",
+        complaint.description,
+    ]
+
+    if location_lines:
+        lines.extend(["", "Location:", *location_lines])
+
+    if image_lines:
+        lines.extend(["", "Attached image links:", *image_lines])
+
+    if remarks:
+        lines.extend(["", "Department triage remarks:", remarks])
+
+    return "\n".join(lines)
+
+
+def forward_complaint_to_authority(complaint, forwarded_by, remarks=''):
+    """
+    Send a reviewed complaint to the assigned department authority contact.
+
+    The complaint is marked forwarded only after the authority email succeeds.
+    """
+    department = complaint.department
+
+    if not department:
+        raise ValueError('This complaint is not assigned to a department.')
+
+    if not department.contact_email:
+        raise ValueError('The assigned department has no authority email configured.')
+
+    subject = f"Reviewed civic complaint {complaint.tracking_id}: {complaint.title}"
+    message = build_authority_forward_message(complaint, remarks)
+
+    forward_log = ComplaintForwardLog.objects.create(
+        complaint=complaint,
+        forwarded_by=forwarded_by,
+        department=department,
+        recipient_email=department.contact_email,
+        recipient_phone=department.contact_phone,
+        subject=subject,
+        message=message,
+        remarks=remarks,
+    )
+
+    try:
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+            recipient_list=[department.contact_email],
+            fail_silently=False,
+        )
+    except Exception as exc:
+        forward_log.status = ComplaintForwardLog.Status.FAILED
+        forward_log.error_message = str(exc)
+        forward_log.save(update_fields=['status', 'error_message'])
+        raise
+
+    forward_log.status = ComplaintForwardLog.Status.SENT
+    forward_log.sent_at = timezone.now()
+    forward_log.save(update_fields=['status', 'sent_at'])
+
+    update_complaint_status(
+        complaint=complaint,
+        new_status=Complaint.Status.FORWARDED,
+        changed_by=forwarded_by,
+        remarks=remarks or 'Forwarded to official authority contact.',
+    )
+
+    complaint.refresh_from_db()
+    return forward_log

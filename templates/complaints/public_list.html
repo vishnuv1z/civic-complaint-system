@@ -47,6 +47,7 @@
                     <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider
                         {% if c.status == 'pending' %}bg-amber-50 text-amber-700
                         {% elif c.status == 'under_review' %}bg-blue-50 text-blue-700
+                        {% elif c.status == 'forwarded' %}bg-emerald-50 text-emerald-700
                         {% elif c.status == 'in_progress' %}bg-indigo-50 text-indigo-700
                         {% elif c.status == 'resolved' %}bg-emerald-50 text-emerald-700
                         {% elif c.status == 'rejected' %}bg-red-50 text-red-700
@@ -136,7 +137,7 @@
         if (status === 'pending') {
             markerColor = '#f59e0b';
             fillColor = '#fde68a';
-        } else if (status === 'resolved') {
+        } else if (status === 'resolved' || status === 'forwarded') {
             markerColor = '#10b981';
             fillColor = '#a7f3d0';
         } else if (status === 'in_progress' || status === 'under_review') {
@@ -155,7 +156,7 @@
                 <div class="mb-3">
                     <span class="text-[10px] font-medium px-2 py-0.5 rounded uppercase
                         ${c.status === 'pending' ? 'bg-amber-50 text-amber-700' :
-                          c.status === 'resolved' ? 'bg-emerald-50 text-emerald-700' :
+                          c.status === 'resolved' || c.status === 'forwarded' ? 'bg-emerald-50 text-emerald-700' :
                           c.status === 'rejected' ? 'bg-red-50 text-red-700' :
                           'bg-blue-50 text-blue-700'}">
                         ${escapeHtml(c.status_display)}

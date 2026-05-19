@@ -2,14 +2,20 @@ from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from django.core import mail
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from .forms import ComplaintForm
-from .models import Complaint
-from apps.departments.models import Department
-from services.complaint_service import create_complaint, update_complaint_status
+from .models import Complaint, ComplaintForwardLog
+from apps.departments.models import Department, DepartmentStaff
+from services.complaint_service import (
+    assign_priority,
+    create_complaint,
+    forward_complaint_to_authority,
+    update_complaint_status,
+)
 
 
 class ComplaintLocationTests(TestCase):
@@ -162,6 +168,51 @@ class ComplaintServiceTests(TestCase):
         self.assertEqual(status_update.old_status, Complaint.Status.PENDING)
         self.assertEqual(status_update.new_status, Complaint.Status.RESOLVED)
 
+    def test_assign_priority_uses_category_and_seriousness(self):
+        self.assertEqual(
+            assign_priority('Noise Pollution', 'Loud music', 'late night noise'),
+            Complaint.Priority.LOW,
+        )
+        self.assertEqual(
+            assign_priority('Electricity', 'Power issue', 'street transformer problem'),
+            Complaint.Priority.HIGH,
+        )
+        self.assertEqual(
+            assign_priority('Park & Playground', 'Live wire in park', 'danger near children'),
+            Complaint.Priority.CRITICAL,
+        )
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_forward_complaint_to_authority_sends_email_and_marks_forwarded(self):
+        department = Department.objects.create(
+            name='Water Department',
+            code='WTR',
+            categories=['Water Supply'],
+            contact_email='authority@example.com',
+            contact_phone='9999999999',
+        )
+        complaint = create_complaint(
+            complainant=self.user,
+            title='Contaminated water',
+            description='Contaminated water is coming through the pipe.',
+            category='Water Supply',
+            run_ai=False,
+        )
+        complaint.department = department
+        complaint.save(update_fields=['department'])
+
+        forward_log = forward_complaint_to_authority(
+            complaint=complaint,
+            forwarded_by=self.user,
+            remarks='Verified and ready to send.',
+        )
+        complaint.refresh_from_db()
+
+        self.assertEqual(complaint.status, Complaint.Status.FORWARDED)
+        self.assertEqual(forward_log.status, ComplaintForwardLog.Status.SENT)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn(complaint.tracking_id, mail.outbox[0].body)
+
 
 class ComplaintSubmitViewTests(TestCase):
     def setUp(self):
@@ -192,3 +243,121 @@ class ComplaintSubmitViewTests(TestCase):
             kwargs={'tracking_id': 'CMP-TEST-1234'},
         ))
         mock_create_complaint.assert_called_once()
+
+
+class DepartmentStaffTriageViewTests(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.citizen = User.objects.create_user(
+            email='triage-citizen@example.com',
+            password='test-pass',
+            first_name='Triage',
+            last_name='Citizen',
+        )
+        self.staff_user = User.objects.create_user(
+            email='department-staff@example.com',
+            password='test-pass',
+            first_name='Dept',
+            last_name='Staff',
+            role='department_staff',
+        )
+        self.other_staff_user = User.objects.create_user(
+            email='other-staff@example.com',
+            password='test-pass',
+            first_name='Other',
+            last_name='Staff',
+            role='department_staff',
+        )
+        self.department = Department.objects.create(
+            name='Public Works',
+            code='PWD',
+            categories=['Road & Pothole'],
+            contact_email='pwd-authority@example.com',
+        )
+        self.other_department = Department.objects.create(
+            name='Electricity Department',
+            code='ELEC',
+            categories=['Electricity'],
+            contact_email='electric-authority@example.com',
+        )
+        DepartmentStaff.objects.create(
+            user=self.staff_user,
+            department=self.department,
+        )
+        DepartmentStaff.objects.create(
+            user=self.other_staff_user,
+            department=self.other_department,
+        )
+        self.complaint = create_complaint(
+            complainant=self.citizen,
+            title='Road pothole',
+            description='Large pothole near the school road.',
+            category='Road & Pothole',
+            run_ai=False,
+        )
+        self.other_complaint = create_complaint(
+            complainant=self.citizen,
+            title='Live wire',
+            description='Live wire is hanging near the street.',
+            category='Electricity',
+            run_ai=False,
+        )
+
+    def test_citizen_cannot_access_department_queue(self):
+        self.client.force_login(self.citizen)
+
+        response = self.client.get(reverse('complaints:staff_queue'))
+
+        self.assertEqual(response.status_code, 302)
+
+    def test_department_staff_sees_only_assigned_department_complaints(self):
+        self.client.force_login(self.staff_user)
+
+        response = self.client.get(reverse('complaints:staff_queue'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.complaint.title)
+        self.assertNotContains(response, self.other_complaint.title)
+
+    def test_department_staff_can_mark_complaint_under_review(self):
+        self.client.force_login(self.staff_user)
+
+        response = self.client.post(
+            reverse('complaints:staff_review', kwargs={'tracking_id': self.complaint.tracking_id}),
+            data={
+                'action': 'under_review',
+                'remarks': 'Checking details.',
+            },
+        )
+        self.complaint.refresh_from_db()
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.complaint.status, Complaint.Status.UNDER_REVIEW)
+        self.assertEqual(self.complaint.status_updates.count(), 1)
+
+    def test_department_staff_cannot_review_other_department_complaint(self):
+        self.client.force_login(self.staff_user)
+
+        response = self.client.get(
+            reverse('complaints:staff_review', kwargs={'tracking_id': self.other_complaint.tracking_id})
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    @override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+    def test_department_staff_can_forward_complaint(self):
+        self.client.force_login(self.staff_user)
+
+        response = self.client.post(
+            reverse('complaints:staff_review', kwargs={'tracking_id': self.complaint.tracking_id}),
+            data={
+                'action': 'forward',
+                'remarks': 'Verified by department staff.',
+            },
+        )
+        self.complaint.refresh_from_db()
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(self.complaint.status, Complaint.Status.FORWARDED)
+        self.assertEqual(self.complaint.forward_logs.count(), 1)
+        self.assertEqual(len(mail.outbox), 1)

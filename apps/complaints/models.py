@@ -18,6 +18,7 @@ class Complaint(models.Model):
     class Status(models.TextChoices):
         PENDING = 'pending', 'Pending'
         UNDER_REVIEW = 'under_review', 'Under Review'
+        FORWARDED = 'forwarded', 'Forwarded to Authority'
         IN_PROGRESS = 'in_progress', 'In Progress'
         RESOLVED = 'resolved', 'Resolved'
         REJECTED = 'rejected', 'Rejected'
@@ -148,3 +149,51 @@ class StatusUpdate(models.Model):
 
     def __str__(self):
         return f"{self.complaint.tracking_id}: {self.old_status} → {self.new_status}"
+class ComplaintForwardLog(models.Model):
+    """Audit trail for complaints forwarded to official authority contacts."""
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'Pending'
+        SENT = 'sent', 'Sent'
+        FAILED = 'failed', 'Failed'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    complaint = models.ForeignKey(
+        Complaint,
+        on_delete=models.CASCADE,
+        related_name='forward_logs',
+    )
+    forwarded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='complaint_forward_logs',
+    )
+    department = models.ForeignKey(
+        'departments.Department',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='complaint_forward_logs',
+    )
+    recipient_email = models.EmailField(blank=True, null=True)
+    recipient_phone = models.CharField(max_length=15, blank=True, null=True)
+    subject = models.CharField(max_length=255)
+    message = models.TextField()
+    remarks = models.TextField(blank=True, null=True)
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    error_message = models.TextField(blank=True, null=True)
+    sent_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Complaint Forward Log'
+        verbose_name_plural = 'Complaint Forward Logs'
+
+    def __str__(self):
+        return f"{self.complaint.tracking_id} -> {self.recipient_email or 'no email'}"

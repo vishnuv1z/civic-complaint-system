@@ -5,6 +5,7 @@ Forms for complaint submission.
 from decimal import Decimal
 
 from django import forms
+from django.db import models
 from .models import Complaint, ComplaintImage
 
 
@@ -103,3 +104,35 @@ class ComplaintImageForm(forms.ModelForm):
                 'placeholder': 'Optional caption for the image',
             }),
         }
+
+
+class ComplaintTriageActionForm(forms.Form):
+    """Form used by department staff to review, reject, or forward complaints."""
+
+    class Action(models.TextChoices):
+        MARK_UNDER_REVIEW = 'under_review', 'Mark Under Review'
+        REJECT = 'reject', 'Reject Complaint'
+        FORWARD = 'forward', 'Send Complaint to Authority'
+
+    action = forms.ChoiceField(
+        choices=Action.choices,
+        widget=forms.Select(attrs={'class': 'form-input'}),
+    )
+    remarks = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'form-input',
+            'rows': 4,
+            'placeholder': 'Add triage notes for the timeline or authority email...',
+        }),
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        action = cleaned_data.get('action')
+        remarks = (cleaned_data.get('remarks') or '').strip()
+
+        if action in {self.Action.REJECT, self.Action.FORWARD} and not remarks:
+            self.add_error('remarks', 'Remarks are required for this action.')
+
+        return cleaned_data

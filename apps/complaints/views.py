@@ -13,9 +13,13 @@ from django.urls import reverse
 from datetime import timedelta
 
 from .models import Complaint
-from .forms import ComplaintForm, ComplaintImageForm
+from .forms import ComplaintForm, ComplaintImageForm, ComplaintTriageActionForm
 from apps.departments.models import Department
-from services.complaint_service import create_complaint
+from services.complaint_service import (
+    create_complaint,
+    forward_complaint_to_authority,
+    update_complaint_status,
+)
 
 
 def home_view(request):
@@ -143,6 +147,137 @@ def complaint_map_view(request):
     })
 
 
+def can_manage_department_complaints(user):
+    """Allow admins/staff and assigned department users into the triage UI."""
+    if not user.is_authenticated:
+        return False
+
+    if user.is_staff or getattr(user, 'role', '') == 'admin':
+        return True
+
+    if getattr(user, 'role', '') == 'department_staff':
+        return hasattr(user, 'department_assignment')
+
+    return False
+
+
+def _manageable_complaints_for(user):
+    complaints = Complaint.objects.select_related(
+        'complainant',
+        'department',
+    ).prefetch_related('images')
+
+    if user.is_staff or getattr(user, 'role', '') == 'admin':
+        return complaints
+
+    try:
+        return complaints.filter(department=user.department_assignment.department)
+    except Exception:
+        return complaints.none()
+
+
+@login_required
+@user_passes_test(can_manage_department_complaints, login_url='/')
+def department_complaint_queue_view(request):
+    """Department triage queue for reviewing complaints before forwarding."""
+    complaints = _manageable_complaints_for(request.user)
+
+    status_filter = request.GET.get('status', '')
+    priority_filter = request.GET.get('priority', '')
+    category_filter = request.GET.get('category', '')
+
+    if status_filter:
+        complaints = complaints.filter(status=status_filter)
+    if priority_filter:
+        complaints = complaints.filter(priority=priority_filter)
+    if category_filter:
+        complaints = complaints.filter(category=category_filter)
+
+    base_queryset = _manageable_complaints_for(request.user)
+    categories = (
+        base_queryset.exclude(category__isnull=True)
+        .exclude(category='')
+        .values_list('category', flat=True)
+        .distinct()
+        .order_by('category')
+    )
+
+    context = {
+        'complaints': complaints.order_by('-created_at'),
+        'status_filter': status_filter,
+        'priority_filter': priority_filter,
+        'category_filter': category_filter,
+        'status_choices': Complaint.Status.choices,
+        'priority_choices': Complaint.Priority.choices,
+        'categories': categories,
+        'pending_count': base_queryset.filter(status=Complaint.Status.PENDING).count(),
+        'review_count': base_queryset.filter(status=Complaint.Status.UNDER_REVIEW).count(),
+        'forwarded_count': base_queryset.filter(status=Complaint.Status.FORWARDED).count(),
+        'rejected_count': base_queryset.filter(status=Complaint.Status.REJECTED).count(),
+    }
+
+    return render(request, 'complaints/staff_queue.html', context)
+
+
+@login_required
+@user_passes_test(can_manage_department_complaints, login_url='/')
+def department_complaint_review_view(request, tracking_id):
+    """Review one complaint and either mark, reject, or forward it."""
+    complaint = get_object_or_404(
+        _manageable_complaints_for(request.user).prefetch_related(
+            'status_updates',
+            'forward_logs',
+        ),
+        tracking_id=tracking_id,
+    )
+
+    if request.method == 'POST':
+        form = ComplaintTriageActionForm(request.POST)
+        if form.is_valid():
+            action = form.cleaned_data['action']
+            remarks = form.cleaned_data.get('remarks', '')
+
+            try:
+                if action == ComplaintTriageActionForm.Action.MARK_UNDER_REVIEW:
+                    update_complaint_status(
+                        complaint=complaint,
+                        new_status=Complaint.Status.UNDER_REVIEW,
+                        changed_by=request.user,
+                        remarks=remarks or 'Marked under review by department staff.',
+                    )
+                    messages.success(request, 'Complaint marked under review.')
+                elif action == ComplaintTriageActionForm.Action.REJECT:
+                    update_complaint_status(
+                        complaint=complaint,
+                        new_status=Complaint.Status.REJECTED,
+                        changed_by=request.user,
+                        remarks=remarks,
+                    )
+                    messages.success(request, 'Complaint rejected and logged.')
+                elif action == ComplaintTriageActionForm.Action.FORWARD:
+                    forward_complaint_to_authority(
+                        complaint=complaint,
+                        forwarded_by=request.user,
+                        remarks=remarks,
+                    )
+                    messages.success(request, 'Complaint sent to the official authority contact.')
+            except Exception as exc:
+                messages.error(request, f'Unable to complete action: {exc}')
+
+            return redirect('complaints:staff_review', tracking_id=complaint.tracking_id)
+        messages.error(request, 'Please correct the errors below.')
+    else:
+        form = ComplaintTriageActionForm()
+
+    return render(request, 'complaints/staff_review.html', {
+        'complaint': complaint,
+        'images': complaint.images.all(),
+        'status_updates': complaint.status_updates.all().order_by('created_at'),
+        'forward_logs': complaint.forward_logs.all(),
+        'form': form,
+    })
+
+
 @login_required
 def complaint_list_view(request):
     """Show all complaints submitted by the logged-in user."""
@@ -194,6 +329,7 @@ def admin_dashboard_view(request):
     pending = Complaint.objects.filter(status=Complaint.Status.PENDING).count()
     under_review = Complaint.objects.filter(status=Complaint.Status.UNDER_REVIEW).count()
     in_progress = Complaint.objects.filter(status=Complaint.Status.IN_PROGRESS).count()
+    forwarded = Complaint.objects.filter(status=Complaint.Status.FORWARDED).count()
     resolved = Complaint.objects.filter(status=Complaint.Status.RESOLVED).count()
     rejected = Complaint.objects.filter(status=Complaint.Status.REJECTED).count()
 
@@ -233,14 +369,15 @@ def admin_dashboard_view(request):
     )
 
     # Status data for chart (as JSON-safe lists)
-    status_labels = ['Pending', 'Under Review', 'In Progress', 'Resolved', 'Rejected']
-    status_data = [pending, under_review, in_progress, resolved, rejected]
+    status_labels = ['Pending', 'Under Review', 'Forwarded', 'In Progress', 'Resolved', 'Rejected']
+    status_data = [pending, under_review, forwarded, in_progress, resolved, rejected]
 
     context = {
         'total': total,
         'pending': pending,
         'under_review': under_review,
         'in_progress': in_progress,
+        'forwarded': forwarded,
         'resolved': resolved,
         'rejected': rejected,
         'this_week': this_week,

@@ -85,7 +85,7 @@
                 <div class="mb-3">
                     <span class="text-[10px] font-medium px-2 py-0.5 rounded uppercase
                         ${c.status === 'pending' ? 'bg-amber-50 text-amber-700' :
-                          c.status === 'resolved' ? 'bg-emerald-50 text-emerald-700' :
+                          c.status === 'resolved' || c.status === 'forwarded' ? 'bg-emerald-50 text-emerald-700' :
                           c.status === 'rejected' ? 'bg-red-50 text-red-700' :
                           'bg-blue-50 text-blue-700'}">
                         ${escapeHtml(c.status_display)}

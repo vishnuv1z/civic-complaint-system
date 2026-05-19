@@ -50,8 +50,8 @@
                 </div>
                 <span class="text-xs font-medium text-blue-500">Active</span>
             </div>
-            <div class="text-2xl font-bold text-surface-900">{{ under_review|add:in_progress }}</div>
-            <p class="text-xs text-surface-400 mt-1">Under review + in progress</p>
+            <div class="text-2xl font-bold text-surface-900">{{ under_review|add:in_progress|add:forwarded }}</div>
+            <p class="text-xs text-surface-400 mt-1">Review, forwarded, in progress</p>
         </div>
 
         <!-- Resolved -->
@@ -89,6 +89,14 @@
                         <div class="h-full bg-blue-400 rounded-full transition-all duration-700" style="width: {% widthratio under_review total 100 %}%"></div>
                     </div>
                     <span class="w-8 text-xs font-bold text-surface-700 text-right">{{ under_review }}</span>
+                </div>
+                <!-- In Progress -->
+                <div class="flex items-center gap-3">
+                    <span class="w-24 text-xs font-medium text-surface-600">Forwarded</span>
+                    <div class="flex-1 bg-surface-100 rounded-full h-3 overflow-hidden">
+                        <div class="h-full bg-emerald-400 rounded-full transition-all duration-700" style="width: {% widthratio forwarded total 100 %}%"></div>
+                    </div>
+                    <span class="w-8 text-xs font-bold text-surface-700 text-right">{{ forwarded }}</span>
                 </div>
                 <!-- In Progress -->
                 <div class="flex items-center gap-3">
