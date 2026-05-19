@@ -113,6 +113,8 @@ class ComplaintTriageActionForm(forms.Form):
         MARK_UNDER_REVIEW = 'under_review', 'Mark Under Review'
         REJECT = 'reject', 'Reject Complaint'
         FORWARD = 'forward', 'Send Complaint to Authority'
+        IN_PROGRESS = 'in_progress', 'Mark as In Progress'
+        RESOLVED = 'resolved', 'Mark as Resolved'
 
     action = forms.ChoiceField(
         choices=Action.choices,

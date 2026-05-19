@@ -1,7 +1,7 @@
 <!-- Footer -->
 <footer class="bg-surface-900 text-surface-200 mt-auto">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
                 <div class="flex items-center gap-2.5 mb-4">
                     <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center">
@@ -24,6 +24,12 @@
                 <ul class="space-y-2 text-sm text-surface-400">
                     <li>📧 support@civiq.gov</li>
                     <li>📞 1800-XXX-XXXX</li>
+                </ul>
+            </div>
+            <div>
+                <h3 class="text-white font-semibold text-sm uppercase tracking-wider mb-4">Department Portal</h3>
+                <ul class="space-y-2 text-sm text-surface-400">
+                    <li><a href="{% url 'accounts:department_login' %}" class="hover:text-white transition-colors">Sign in as department</a></li>
                 </ul>
             </div>
         </div>

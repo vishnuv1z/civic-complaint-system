@@ -213,7 +213,10 @@ def department_complaint_queue_view(request):
         'pending_count': base_queryset.filter(status=Complaint.Status.PENDING).count(),
         'review_count': base_queryset.filter(status=Complaint.Status.UNDER_REVIEW).count(),
         'forwarded_count': base_queryset.filter(status=Complaint.Status.FORWARDED).count(),
+        'in_progress_count': base_queryset.filter(status=Complaint.Status.IN_PROGRESS).count(),
+        'resolved_count': base_queryset.filter(status=Complaint.Status.RESOLVED).count(),
         'rejected_count': base_queryset.filter(status=Complaint.Status.REJECTED).count(),
+        'complaints_json': _complaints_map_payload(complaints),
     }
 
     return render(request, 'complaints/staff_queue.html', context)
@@ -261,6 +264,22 @@ def department_complaint_review_view(request, tracking_id):
                         remarks=remarks,
                     )
                     messages.success(request, 'Complaint sent to the official authority contact.')
+                elif action == ComplaintTriageActionForm.Action.IN_PROGRESS:
+                    update_complaint_status(
+                        complaint=complaint,
+                        new_status=Complaint.Status.IN_PROGRESS,
+                        changed_by=request.user,
+                        remarks=remarks or 'Marked in progress by department staff.',
+                    )
+                    messages.success(request, 'Complaint marked as in progress.')
+                elif action == ComplaintTriageActionForm.Action.RESOLVED:
+                    update_complaint_status(
+                        complaint=complaint,
+                        new_status=Complaint.Status.RESOLVED,
+                        changed_by=request.user,
+                        remarks=remarks or 'Marked resolved by department staff.',
+                    )
+                    messages.success(request, 'Complaint marked as resolved.')
             except Exception as exc:
                 messages.error(request, f'Unable to complete action: {exc}')
 
