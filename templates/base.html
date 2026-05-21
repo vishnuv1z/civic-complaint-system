@@ -68,7 +68,7 @@
     {% block extra_css %}{% endblock %}
 </head>
 
-<body class="min-h-screen bg-surface-50 text-surface-800 font-sans antialiased">
+<body class="min-h-screen bg-surface-50 text-surface-800 font-sans antialiased flex flex-col">
 
     <!-- Navbar -->
     {% include 'navbar.html' %}
@@ -96,7 +96,7 @@
     {% endif %}
 
     <!-- Page Content -->
-    <main>
+    <main class="flex-grow">
         {% block content %}{% endblock %}
     </main>
 

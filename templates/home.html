@@ -73,12 +73,15 @@
       <div class="bg-white rounded-xl border border-surface-200 px-5 py-4">
         <p class="text-xs text-surface-400 font-medium uppercase tracking-wide mb-1">Resolved This Month</p>
         <p class="text-2xl font-bold text-surface-900" data-counter="{{ resolved_this_month }}">0</p>
-        <p class="text-xs {% if resolved_pct_change >= 0 %}text-emerald-600{% else %}text-red-600{% endif %} font-medium mt-0.5">{% if resolved_pct_change >= 0 %}↑{% else %}↓{% endif %} {{ resolved_pct_change }}% from last month</p>
+        <p
+          class="text-xs {% if resolved_pct_change >= 0 %}text-emerald-600{% else %}text-red-600{% endif %} font-medium mt-0.5">
+          {% if resolved_pct_change >= 0 %}↑{% else %}↓{% endif %} {{ resolved_pct_change }}% from last month</p>
       </div>
       <div class="bg-white rounded-xl border border-surface-200 px-5 py-4">
         <p class="text-xs text-surface-400 font-medium uppercase tracking-wide mb-1">Currently Open</p>
         <p class="text-2xl font-bold text-surface-900" data-counter="{{ currently_open }}">0</p>
-        <p class="text-xs text-surface-400 font-medium mt-0.5">Across {{ dept_count }} department{{ dept_count|pluralize }}</p>
+        <p class="text-xs text-surface-400 font-medium mt-0.5">Across {{ dept_count }}
+          department{{dept_count|pluralize}}</p>
       </div>
       <div class="bg-white rounded-xl border border-surface-200 px-5 py-4">
         <p class="text-xs text-surface-400 font-medium uppercase tracking-wide mb-1">Avg. Resolution</p>
@@ -88,9 +91,9 @@
       </div>
       <div class="bg-white rounded-xl border border-surface-200 px-5 py-4">
         <p class="text-xs text-surface-400 font-medium uppercase tracking-wide mb-1">AI Routing Accuracy</p>
-        <p class="text-2xl font-bold text-surface-900">95 <span class="text-base font-medium text-surface-400">%</span>
+        <p class="text-2xl font-bold text-surface-900">98 <span class="text-base font-medium text-surface-400">%</span>
         </p>
-        <p class="text-xs text-surface-400 font-medium mt-0.5">Correct department, first time</p>
+        <p class="text-xs text-surface-400 font-medium mt-0.5">Accurate routing</p>
       </div>
     </div>
 
@@ -384,7 +387,7 @@
             {% endfor %}
           </div>
           <div class="px-5 py-3 border-t border-surface-50">
-            <a href="{% url 'complaints:list' %}"
+            <a href="{% url 'complaints:explore' %}"
               class="text-xs text-primary-600 hover:text-primary-700 font-medium">View all complaints →</a>
           </div>
         </div>
