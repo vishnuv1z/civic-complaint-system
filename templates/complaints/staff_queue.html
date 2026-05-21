@@ -143,27 +143,33 @@
         {% endif %}
     </div>
 </div>
+
+{{ complaints_json|json_script:"department-complaints-data" }}
 {% endblock %}
 
 {% block extra_js %}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        const map = L.map('queue-map').setView([0, 0], 2);
+        const defaultCenter = [10.8505, 76.2711];
+        const map = L.map('queue-map').setView(defaultCenter, 7);
         
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '&copy; OpenStreetMap contributors'
         }).addTo(map);
 
-        const complaints = {{ complaints_json|safe }};
+        const dataElement = document.getElementById('department-complaints-data');
+        const complaints = JSON.parse(dataElement.textContent || '[]');
         const bounds = [];
         
         const markers = L.featureGroup();
 
         complaints.forEach(c => {
             if (c.has_valid_coordinates) {
-                const marker = L.marker([c.latitude, c.longitude]);
+                const latitude = Number(c.latitude);
+                const longitude = Number(c.longitude);
+                const marker = L.marker([latitude, longitude]);
                 
                 let statusColor = '#64748b'; // default surface-500
                 if (c.status === 'pending') statusColor = '#d97706'; // amber-600
@@ -188,14 +194,16 @@
                 
                 marker.bindPopup(popupContent);
                 markers.addLayer(marker);
-                bounds.push([c.latitude, c.longitude]);
+                bounds.push([latitude, longitude]);
             }
         });
         
         markers.addTo(map);
 
-        if (bounds.length > 0) {
-            map.fitBounds(bounds, { padding: [30, 30] });
+        if (bounds.length === 1) {
+            map.setView(bounds[0], 14);
+        } else if (bounds.length > 1) {
+            map.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 });
         }
     });
 </script>

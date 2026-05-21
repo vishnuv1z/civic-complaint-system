@@ -123,6 +123,27 @@ def complaint_coordinates_api(request):
     })
 
 
+def track_complaint_view(request):
+    """Let citizens look up a complaint by tracking ID."""
+    tracking_id = request.GET.get('tracking_id', '').strip()
+    complaint = None
+    error = ''
+
+    if tracking_id:
+        try:
+            complaint = Complaint.objects.select_related('department').get(
+                tracking_id__iexact=tracking_id,
+            )
+        except Complaint.DoesNotExist:
+            error = 'No complaint was found for that tracking ID.'
+
+    return render(request, 'complaints/track.html', {
+        'tracking_id': tracking_id,
+        'complaint': complaint,
+        'error': error,
+    })
+
+
 def public_complaints_view(request):
     """Show a gallery of all public complaints and a map."""
     complaints = Complaint.objects.select_related('complainant').prefetch_related('images').order_by('-created_at')
@@ -174,6 +195,26 @@ def _manageable_complaints_for(user):
         return complaints.filter(department=user.department_assignment.department)
     except Exception:
         return complaints.none()
+
+
+@login_required
+@user_passes_test(can_manage_department_complaints, login_url='/')
+def department_complaint_coordinates_api(request):
+    """Return department-scoped complaint coordinates for Leaflet marker rendering."""
+    complaints = _manageable_complaints_for(request.user).only(
+        'tracking_id',
+        'title',
+        'status',
+        'latitude',
+        'longitude',
+    ).order_by('-created_at')
+    complaints_data = _complaints_map_payload(complaints)
+
+    return JsonResponse({
+        'count': len(complaints_data),
+        'mapped_count': sum(1 for c in complaints_data if c['has_valid_coordinates']),
+        'complaints': complaints_data,
+    })
 
 
 @login_required
