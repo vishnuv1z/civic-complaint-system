@@ -129,6 +129,18 @@ class ComplaintTriageActionForm(forms.Form):
         }),
     )
 
+    def __init__(self, *args, complaint=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if complaint and complaint.status in [
+            Complaint.Status.FORWARDED,
+            Complaint.Status.IN_PROGRESS,
+            Complaint.Status.RESOLVED,
+            Complaint.Status.REJECTED,
+            Complaint.Status.CLOSED,
+        ]:
+            choices = [c for c in self.fields['action'].choices if c[0] != self.Action.FORWARD]
+            self.fields['action'].choices = choices
+
     def clean(self):
         cleaned_data = super().clean()
         action = cleaned_data.get('action')

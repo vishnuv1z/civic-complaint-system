@@ -276,7 +276,7 @@ def department_complaint_review_view(request, tracking_id):
     )
 
     if request.method == 'POST':
-        form = ComplaintTriageActionForm(request.POST)
+        form = ComplaintTriageActionForm(request.POST, complaint=complaint)
         if form.is_valid():
             action = form.cleaned_data['action']
             remarks = form.cleaned_data.get('remarks', '')
@@ -327,7 +327,7 @@ def department_complaint_review_view(request, tracking_id):
             return redirect('complaints:staff_review', tracking_id=complaint.tracking_id)
         messages.error(request, 'Please correct the errors below.')
     else:
-        form = ComplaintTriageActionForm()
+        form = ComplaintTriageActionForm(complaint=complaint)
 
     return render(request, 'complaints/staff_review.html', {
         'complaint': complaint,
