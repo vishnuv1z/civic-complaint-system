@@ -283,18 +283,25 @@ def forward_complaint_to_authority(complaint, forwarded_by, remarks=''):
             error_msgs.append(f"Email error: {str(exc)}")
 
     if department.contact_phone:
+        desc = complaint.description
+        if desc and len(desc) > 80:
+            desc = desc[:77] + "..."
+            
         sms_parts = [
             f"Civic Complaint {complaint.tracking_id}: {complaint.title}",
             f"Priority: {complaint.get_priority_display()}",
-            f"Desc: {complaint.description}"
+            f"Desc: {desc}"
         ]
         
         if complaint.address:
-            sms_parts.append(f"Loc: {complaint.address}")
+            addr = complaint.address
+            if len(addr) > 50:
+                addr = addr[:47] + "..."
+            sms_parts.append(f"Loc: {addr}")
         elif complaint.latitude is not None and complaint.longitude is not None:
             sms_parts.append(f"Loc: {complaint.latitude}, {complaint.longitude}")
             
-        sms_msg = "\n".join(sms_parts)
+        sms_msg = " | ".join(sms_parts)
 
         if send_sms_notification(department.contact_phone, sms_msg):
             sms_sent = True

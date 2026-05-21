@@ -41,5 +41,6 @@ def send_sms_notification(phone_number, message):
             to=phone_number
         )
         return True
-    except Exception:
+    except Exception as e:
+        print(f"Twilio SMS Error: {str(e)}")
         return False

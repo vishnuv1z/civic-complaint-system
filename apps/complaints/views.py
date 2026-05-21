@@ -24,7 +24,77 @@ from services.complaint_service import (
 
 def home_view(request):
     """Landing page of the Civic Complaint Management System."""
-    return render(request, 'home.html')
+    now = timezone.now()
+
+    # ── Resolved This Month ──
+    first_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    resolved_this_month = Complaint.objects.filter(
+        status=Complaint.Status.RESOLVED,
+        resolved_at__gte=first_of_month,
+    ).count()
+
+    # Month-over-month % change
+    first_of_last_month = (first_of_month - timedelta(days=1)).replace(day=1)
+    resolved_last_month = Complaint.objects.filter(
+        status=Complaint.Status.RESOLVED,
+        resolved_at__gte=first_of_last_month,
+        resolved_at__lt=first_of_month,
+    ).count()
+    if resolved_last_month > 0:
+        resolved_pct_change = round(
+            (resolved_this_month - resolved_last_month) / resolved_last_month * 100
+        )
+    else:
+        resolved_pct_change = 100 if resolved_this_month > 0 else 0
+
+    # ── Currently Open ──
+    open_statuses = [
+        Complaint.Status.PENDING,
+        Complaint.Status.UNDER_REVIEW,
+        Complaint.Status.FORWARDED,
+        Complaint.Status.IN_PROGRESS,
+    ]
+    currently_open = Complaint.objects.filter(status__in=open_statuses).count()
+
+    # Active department count
+    dept_count = Department.objects.filter(is_active=True).count()
+
+    # ── Recent Activity (last 5 complaints) ──
+    recent_complaints = (
+        Complaint.objects.select_related('department')
+        .order_by('-created_at')[:5]
+    )
+
+    recent_activity = []
+    for c in recent_complaints:
+        delta = now - c.created_at
+        if delta.days > 0:
+            time_ago = f"{delta.days} day{'s' if delta.days != 1 else ''} ago"
+        else:
+            hours = delta.seconds // 3600
+            if hours > 0:
+                time_ago = f"{hours} hour{'s' if hours != 1 else ''} ago"
+            else:
+                minutes = delta.seconds // 60
+                time_ago = f"{minutes} minute{'s' if minutes != 1 else ''} ago" if minutes > 0 else "Just now"
+
+        recent_activity.append({
+            'title': c.title,
+            'category': c.category or 'Uncategorised',
+            'location': c.address.split(',')[-1].strip() if c.address else '—',
+            'status': c.status,
+            'time_ago': time_ago,
+            'tracking_id': c.tracking_id,
+        })
+
+    context = {
+        'resolved_this_month': resolved_this_month,
+        'resolved_pct_change': resolved_pct_change,
+        'currently_open': currently_open,
+        'dept_count': dept_count,
+        'recent_activity': recent_activity,
+    }
+    return render(request, 'home.html', context)
 
 
 @login_required
