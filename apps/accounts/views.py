@@ -9,7 +9,7 @@ from django.contrib.auth.views import LoginView, LogoutView
 from django.contrib import messages
 from django.urls import reverse_lazy
 
-from .forms import CustomUserRegistrationForm, CustomLoginForm, UserProfileForm
+from .forms import CustomUserRegistrationForm, CustomLoginForm, UserProfileForm, DepartmentRegistrationForm
 
 
 class CustomLoginView(LoginView):
@@ -22,6 +22,33 @@ class CustomLoginView(LoginView):
 class CustomLogoutView(LogoutView):
     """Logout and redirect to home."""
     next_page = reverse_lazy('complaints:home')
+
+
+class DepartmentLoginView(LoginView):
+    """Custom login view for department staff."""
+    form_class = CustomLoginForm
+    template_name = 'accounts/department_login.html'
+    redirect_authenticated_user = True
+
+
+def department_register_view(request):
+    """Handle department user registration."""
+    if request.user.is_authenticated:
+        return redirect('complaints:home')
+
+    if request.method == 'POST':
+        form = DepartmentRegistrationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            login(request, user)
+            messages.success(request, 'Department account created! Welcome aboard.')
+            return redirect('complaints:home')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = DepartmentRegistrationForm()
+
+    return render(request, 'accounts/department_register.html', {'form': form})
 
 
 def register_view(request):

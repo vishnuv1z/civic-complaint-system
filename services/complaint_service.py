@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from apps.ai_engine.classifier import classify_complaint
 from apps.ai_engine.router import route_complaint
+from apps.notifications.services import send_sms_notification
 from apps.complaints.models import (
     Complaint,
     ComplaintForwardLog,
@@ -240,15 +241,15 @@ def forward_complaint_to_authority(complaint, forwarded_by, remarks=''):
     """
     Send a reviewed complaint to the assigned department authority contact.
 
-    The complaint is marked forwarded only after the authority email succeeds.
+    The complaint is marked forwarded only after the authority email or SMS succeeds.
     """
     department = complaint.department
 
     if not department:
         raise ValueError('This complaint is not assigned to a department.')
 
-    if not department.contact_email:
-        raise ValueError('The assigned department has no authority email configured.')
+    if not department.contact_email and not department.contact_phone:
+        raise ValueError('The assigned department has no authority email or phone configured.')
 
     subject = f"Reviewed civic complaint {complaint.tracking_id}: {complaint.title}"
     message = build_authority_forward_message(complaint, remarks)
@@ -264,23 +265,62 @@ def forward_complaint_to_authority(complaint, forwarded_by, remarks=''):
         remarks=remarks,
     )
 
-    try:
-        send_mail(
-            subject=subject,
-            message=message,
-            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', None),
-            recipient_list=[department.contact_email],
-            fail_silently=False,
-        )
-    except Exception as exc:
+    email_sent = False
+    sms_sent = False
+    error_msgs = []
+
+    if department.contact_email:
+        try:
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', None),
+                recipient_list=[department.contact_email],
+                fail_silently=False,
+            )
+            email_sent = True
+        except Exception as exc:
+            error_msgs.append(f"Email error: {str(exc)}")
+
+    if department.contact_phone:
+        desc = complaint.description
+        if desc and len(desc) > 80:
+            desc = desc[:77] + "..."
+            
+        sms_parts = [
+            f"Civic Complaint {complaint.tracking_id}: {complaint.title}",
+            f"Priority: {complaint.get_priority_display()}",
+            f"Desc: {desc}"
+        ]
+        
+        if complaint.address:
+            addr = complaint.address
+            if len(addr) > 50:
+                addr = addr[:47] + "..."
+            sms_parts.append(f"Loc: {addr}")
+        elif complaint.latitude is not None and complaint.longitude is not None:
+            sms_parts.append(f"Loc: {complaint.latitude}, {complaint.longitude}")
+            
+        sms_msg = " | ".join(sms_parts)
+
+        if send_sms_notification(department.contact_phone, sms_msg):
+            sms_sent = True
+        else:
+            error_msgs.append("SMS error: Failed to send via Twilio")
+
+    if not email_sent and not sms_sent:
         forward_log.status = ComplaintForwardLog.Status.FAILED
-        forward_log.error_message = str(exc)
+        forward_log.error_message = " | ".join(error_msgs)
         forward_log.save(update_fields=['status', 'error_message'])
-        raise
+        raise ValueError(f"Failed to route complaint: {forward_log.error_message}")
 
     forward_log.status = ComplaintForwardLog.Status.SENT
     forward_log.sent_at = timezone.now()
-    forward_log.save(update_fields=['status', 'sent_at'])
+    if error_msgs:
+        forward_log.error_message = "Partial success. " + " | ".join(error_msgs)
+        forward_log.save(update_fields=['status', 'sent_at', 'error_message'])
+    else:
+        forward_log.save(update_fields=['status', 'sent_at'])
 
     update_complaint_status(
         complaint=complaint,

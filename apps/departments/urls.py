@@ -6,6 +6,8 @@ from django.urls import path
 
 app_name = 'departments'
 
+from . import views
+
 urlpatterns = [
-    # Department views will be added in Phase 5.
+    path('settings/', views.department_settings_view, name='settings'),
 ]

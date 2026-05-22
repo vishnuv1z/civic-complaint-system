@@ -115,11 +115,17 @@
                 <dl class="space-y-3 text-sm">
                     <div>
                         <dt class="text-surface-400">Authority Email</dt>
-                        <dd class="font-medium text-surface-800">{{ complaint.department.contact_email|default:"Not configured" }}</dd>
+                        <dd class="font-medium text-surface-800">
+                            {{ complaint.department.contact_email|default:"Not configured" }}
+                            <a href="{% url 'departments:settings' %}?next={{ request.path }}" class="text-xs text-primary-600 hover:underline ml-1">(Edit)</a>
+                        </dd>
                     </div>
                     <div>
                         <dt class="text-surface-400">Authority Phone</dt>
-                        <dd class="font-medium text-surface-800">{{ complaint.department.contact_phone|default:"Not configured" }}</dd>
+                        <dd class="font-medium text-surface-800">
+                            {{ complaint.department.contact_phone|default:"Not configured" }}
+                            <a href="{% url 'departments:settings' %}?next={{ request.path }}" class="text-xs text-primary-600 hover:underline ml-1">(Edit)</a>
+                        </dd>
                     </div>
                     <div>
                         <dt class="text-surface-400">Category</dt>

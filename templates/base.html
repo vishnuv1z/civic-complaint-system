@@ -1,10 +1,16 @@
+{% load static %}
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Smart Civic Complaint Management System — File, track, and resolve civic complaints with intelligent AI categorization.">
+
     <title>{% block title %}Civiq — Complaint Management{% endblock %}</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{% static 'images/favicon.png' %}">
 
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -57,11 +63,12 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
     <!-- Custom Styles -->
-    <link rel="stylesheet" href="{% load static %}{% static 'css/styles.css' %}">
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
 
     {% block extra_css %}{% endblock %}
 </head>
-<body class="min-h-screen bg-surface-50 text-surface-800 font-sans antialiased">
+
+<body class="min-h-screen bg-surface-50 text-surface-800 font-sans antialiased flex flex-col">
 
     <!-- Navbar -->
     {% include 'navbar.html' %}
@@ -76,15 +83,20 @@
             {% elif message.tags == 'warning' %} bg-amber-50 text-amber-800 border border-amber-200
             {% else %} bg-blue-50 text-blue-800 border border-blue-200
             {% endif %}">
+
             <span>{{ message }}</span>
-            <button onclick="this.parentElement.remove()" class="ml-auto text-lg leading-none opacity-60 hover:opacity-100 transition-opacity">&times;</button>
+
+            <button onclick="this.parentElement.remove()"
+                    class="ml-auto text-lg leading-none opacity-60 hover:opacity-100 transition-opacity">
+                &times;
+            </button>
         </div>
         {% endfor %}
     </div>
     {% endif %}
 
     <!-- Page Content -->
-    <main>
+    <main class="flex-grow">
         {% block content %}{% endblock %}
     </main>
 
@@ -93,6 +105,7 @@
 
     <!-- Custom JS -->
     <script src="{% static 'js/main.js' %}"></script>
+
     {% block extra_js %}{% endblock %}
 </body>
 </html>

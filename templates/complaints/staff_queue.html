@@ -1,16 +1,29 @@
 {% extends 'base.html' %}
 {% block title %}Department Queue - Civiq{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<style>
+    #queue-map { height: 400px; z-index: 10; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
-            <h1 class="text-3xl font-bold text-surface-900">Department Queue</h1>
-            <p class="text-surface-500 text-sm mt-1">Review complaints before sending them to official authority contacts.</p>
+            <h1 class="text-3xl font-bold text-surface-900">Department Dashboard</h1>
+            <p class="text-surface-500 text-sm mt-1">Review, map, and manage complaints assigned to your department.</p>
+        </div>
+        <div>
+            <a href="{% url 'departments:settings' %}" class="px-4 py-2 bg-white border border-surface-200 rounded-lg text-sm font-medium text-surface-700 hover:bg-surface-50 transition-colors shadow-sm inline-flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                Department Settings
+            </a>
         </div>
     </div>
 
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
         <div class="bg-white border border-surface-100 rounded-xl p-4">
             <p class="text-xs font-medium text-surface-400 uppercase">Pending</p>
             <div class="text-2xl font-bold text-amber-600 mt-1">{{ pending_count }}</div>
@@ -21,7 +34,15 @@
         </div>
         <div class="bg-white border border-surface-100 rounded-xl p-4">
             <p class="text-xs font-medium text-surface-400 uppercase">Forwarded</p>
-            <div class="text-2xl font-bold text-emerald-600 mt-1">{{ forwarded_count }}</div>
+            <div class="text-2xl font-bold text-purple-600 mt-1">{{ forwarded_count }}</div>
+        </div>
+        <div class="bg-white border border-surface-100 rounded-xl p-4">
+            <p class="text-xs font-medium text-surface-400 uppercase">In Progress</p>
+            <div class="text-2xl font-bold text-indigo-600 mt-1">{{ in_progress_count }}</div>
+        </div>
+        <div class="bg-white border border-surface-100 rounded-xl p-4">
+            <p class="text-xs font-medium text-surface-400 uppercase">Resolved</p>
+            <div class="text-2xl font-bold text-emerald-600 mt-1">{{ resolved_count }}</div>
         </div>
         <div class="bg-white border border-surface-100 rounded-xl p-4">
             <p class="text-xs font-medium text-surface-400 uppercase">Rejected</p>
@@ -50,6 +71,14 @@
         </select>
         <button type="submit" class="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 transition-colors">Apply Filters</button>
     </form>
+
+    <div class="bg-white border border-surface-100 rounded-xl overflow-hidden mb-6">
+        <div class="p-4 border-b border-surface-100 flex justify-between items-center bg-surface-50/50">
+            <h2 class="font-semibold text-surface-800">Complaint Locations</h2>
+            <span class="text-xs font-medium text-surface-500">Mapping {{ complaints_json|length }} complaints</span>
+        </div>
+        <div id="queue-map" class="w-full"></div>
+    </div>
 
     <div class="bg-white border border-surface-100 rounded-xl overflow-hidden">
         {% if complaints %}
@@ -114,4 +143,68 @@
         {% endif %}
     </div>
 </div>
+
+{{ complaints_json|json_script:"department-complaints-data" }}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const defaultCenter = [10.8505, 76.2711];
+        const map = L.map('queue-map').setView(defaultCenter, 7);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        const dataElement = document.getElementById('department-complaints-data');
+        const complaints = JSON.parse(dataElement.textContent || '[]');
+        const bounds = [];
+        
+        const markers = L.featureGroup();
+
+        complaints.forEach(c => {
+            if (c.has_valid_coordinates) {
+                const latitude = Number(c.latitude);
+                const longitude = Number(c.longitude);
+                const marker = L.marker([latitude, longitude]);
+                
+                let statusColor = '#64748b'; // default surface-500
+                if (c.status === 'pending') statusColor = '#d97706'; // amber-600
+                if (c.status === 'under_review') statusColor = '#2563eb'; // blue-600
+                if (c.status === 'forwarded') statusColor = '#9333ea'; // purple-600
+                if (c.status === 'in_progress') statusColor = '#4f46e5'; // indigo-600
+                if (c.status === 'resolved') statusColor = '#10b981'; // emerald-500
+                if (c.status === 'rejected') statusColor = '#dc2626'; // red-600
+
+                const popupContent = `
+                    <div class="p-1">
+                        <p class="font-bold text-sm mb-1">${c.title}</p>
+                        <p class="text-xs mb-2">Tracking ID: <span class="font-mono text-primary-600">${c.tracking_id}</span></p>
+                        <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full text-white" style="background-color: ${statusColor}">
+                            ${c.status_display}
+                        </span>
+                        <div class="mt-3">
+                            <a href="${c.url}" class="text-xs text-primary-600 hover:text-primary-700 font-medium">View Details &rarr;</a>
+                        </div>
+                    </div>
+                `;
+                
+                marker.bindPopup(popupContent);
+                markers.addLayer(marker);
+                bounds.push([latitude, longitude]);
+            }
+        });
+        
+        markers.addTo(map);
+
+        if (bounds.length === 1) {
+            map.setView(bounds[0], 14);
+        } else if (bounds.length > 1) {
+            map.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 });
+        }
+    });
+</script>
 {% endblock %}
