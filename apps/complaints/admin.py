@@ -39,12 +39,29 @@ class ComplaintAdmin(admin.ModelAdmin):
     )
     list_filter = ('status', 'priority', 'category', 'department', 'created_at')
     search_fields = ('tracking_id', 'title', 'description', 'complainant__email')
-    readonly_fields = ('id', 'tracking_id', 'ai_category', 'ai_confidence', 'created_at', 'updated_at')
+    readonly_fields = (
+        'id',
+        'tracking_id',
+        'ai_category',
+        'ai_confidence',
+        'ai_genuineness_score',
+        'ai_genuineness_reason',
+        'ai_validation_flags',
+        'created_at',
+        'updated_at',
+    )
     inlines = [ComplaintImageInline, StatusUpdateInline, ComplaintForwardLogInline]
 
     fieldsets = (
         ('Basic Info', {'fields': ('id', 'tracking_id', 'complainant', 'title', 'description')}),
         ('Classification', {'fields': ('category', 'ai_category', 'ai_confidence', 'department')}),
+        ('Genuineness Check', {
+            'fields': (
+                'ai_genuineness_score',
+                'ai_genuineness_reason',
+                'ai_validation_flags',
+            ),
+        }),
         ('Status', {'fields': ('status', 'priority')}),
         ('Location', {'fields': ('address', 'latitude', 'longitude')}),
         ('Timestamps', {'fields': ('created_at', 'updated_at', 'resolved_at')}),

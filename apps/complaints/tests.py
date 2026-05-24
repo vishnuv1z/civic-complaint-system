@@ -224,7 +224,14 @@ class ComplaintSubmitViewTests(TestCase):
         )
 
     @patch('apps.complaints.views.create_complaint')
-    def test_submit_view_delegates_creation_to_service(self, mock_create_complaint):
+    @patch('apps.complaints.views.analyze_complaint_genuineness')
+    def test_submit_view_delegates_creation_to_service(self, mock_analyze, mock_create_complaint):
+        mock_analyze.return_value = {
+            'is_genuine': True,
+            'confidence': 0.91,
+            'reason': 'The complaint appears genuine.',
+            'flags': [],
+        }
         mock_create_complaint.return_value = SimpleNamespace(tracking_id='CMP-TEST-1234')
         self.client.force_login(self.user)
 
@@ -243,6 +250,34 @@ class ComplaintSubmitViewTests(TestCase):
             kwargs={'tracking_id': 'CMP-TEST-1234'},
         ))
         mock_create_complaint.assert_called_once()
+        self.assertEqual(
+            mock_create_complaint.call_args.kwargs['genuineness_result'],
+            mock_analyze.return_value,
+        )
+
+    @patch('apps.complaints.views.create_complaint')
+    @patch('apps.complaints.views.analyze_complaint_genuineness')
+    def test_submit_view_blocks_irrelevant_complaint(self, mock_analyze, mock_create_complaint):
+        mock_analyze.return_value = {
+            'is_genuine': False,
+            'confidence': 0.89,
+            'reason': 'This complaint appears unrelated to civic issues.',
+            'flags': ['no_civic_keywords'],
+        }
+        self.client.force_login(self.user)
+
+        response = self.client.post(reverse('complaints:submit'), data={
+            'title': 'Random promotion',
+            'description': 'This is a promotional message that should not be posted.',
+            'category': 'Other',
+            'address': 'MG Road',
+            'latitude': '10.850516',
+            'longitude': '76.271080',
+        })
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'This complaint appears unrelated to civic issues.')
+        mock_create_complaint.assert_not_called()
 
 
 class DepartmentStaffTriageViewTests(TestCase):

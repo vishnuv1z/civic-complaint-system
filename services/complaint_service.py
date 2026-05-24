@@ -92,6 +92,7 @@ def create_complaint(
     image_file=None,
     image_caption=None,
     image_path=None,
+    genuineness_result=None,
     run_ai=True,
 ):
     """
@@ -102,6 +103,7 @@ def create_complaint(
     """
     initial_category = category or 'Other'
     saved_image = None
+    genuineness_result = genuineness_result or {}
 
     with transaction.atomic():
         complaint = Complaint.objects.create(
@@ -111,6 +113,9 @@ def create_complaint(
             category=initial_category,
             department=route_complaint(initial_category),
             priority=assign_priority(initial_category, title, description),
+            ai_genuineness_score=genuineness_result.get('confidence'),
+            ai_genuineness_reason=genuineness_result.get('reason'),
+            ai_validation_flags=genuineness_result.get('flags') or [],
             address=address,
             latitude=latitude,
             longitude=longitude,
