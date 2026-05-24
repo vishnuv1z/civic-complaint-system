@@ -54,6 +54,12 @@ class Complaint(models.Model):
         blank=True, null=True,
         help_text='AI confidence score (0.0 – 1.0)',
     )
+    ai_genuineness_score = models.FloatField(
+        blank=True, null=True,
+        help_text='AI confidence that this is a genuine civic complaint',
+    )
+    ai_genuineness_reason = models.TextField(blank=True, null=True)
+    ai_validation_flags = models.JSONField(default=list, blank=True)
     department = models.ForeignKey(
         'departments.Department',
         on_delete=models.SET_NULL,

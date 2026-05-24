@@ -14,6 +14,7 @@ from datetime import timedelta
 
 from .models import Complaint
 from .forms import ComplaintForm, ComplaintImageForm, ComplaintTriageActionForm
+from apps.ai_engine.genuineness import analyze_complaint_genuineness
 from apps.departments.models import Department
 from services.complaint_service import (
     create_complaint,
@@ -105,6 +106,25 @@ def submit_complaint_view(request):
         image_form = ComplaintImageForm(request.POST, request.FILES)
 
         if form.is_valid() and image_form.is_valid():
+            genuineness_result = analyze_complaint_genuineness(
+                title=form.cleaned_data['title'],
+                description=form.cleaned_data['description'],
+                category=form.cleaned_data.get('category'),
+                image_file=image_form.cleaned_data.get('image'),
+            )
+
+            if not genuineness_result.get('is_genuine'):
+                messages.error(
+                    request,
+                    genuineness_result.get('reason')
+                    or 'This complaint appears to be spam or unrelated to civic issues.',
+                )
+                return render(request, 'complaints/submit.html', {
+                    'form': form,
+                    'image_form': image_form,
+                    'genuineness_result': genuineness_result,
+                })
+
             complaint = create_complaint(
                 complainant=request.user,
                 title=form.cleaned_data['title'],
@@ -115,6 +135,7 @@ def submit_complaint_view(request):
                 longitude=form.cleaned_data.get('longitude'),
                 image_file=image_form.cleaned_data.get('image'),
                 image_caption=image_form.cleaned_data.get('caption'),
+                genuineness_result=genuineness_result,
             )
 
             messages.success(
