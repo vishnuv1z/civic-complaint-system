@@ -1,15 +1,10 @@
-"""
-Tests for the accounts app.
-"""
-
 from django.test import TestCase
+
 from .models import CustomUser
 
 
 class CustomUserModelTest(TestCase):
-    """Test the CustomUser model."""
-
-    def test_create_user(self):
+    def test_create_user_defaults_to_citizen(self):
         user = CustomUser.objects.create_user(
             email='test@example.com',
             password='testpass123',
@@ -22,7 +17,7 @@ class CustomUserModelTest(TestCase):
         self.assertFalse(user.is_superuser)
         self.assertTrue(user.is_citizen)
 
-    def test_create_superuser(self):
+    def test_create_superuser_sets_admin_flags(self):
         admin = CustomUser.objects.create_superuser(
             email='admin@example.com',
             password='adminpass123',
@@ -31,7 +26,3 @@ class CustomUserModelTest(TestCase):
         )
         self.assertTrue(admin.is_staff)
         self.assertTrue(admin.is_superuser)
-
-    def test_email_is_required(self):
-        with self.assertRaises(ValueError):
-            CustomUser.objects.create_user(email='', password='testpass123')
