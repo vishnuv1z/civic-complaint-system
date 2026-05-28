@@ -375,7 +375,7 @@
                   {% if activity.status == 'resolved' %}bg-emerald-50 text-emerald-700
                   {% elif activity.status == 'in_progress' %}bg-blue-50 text-blue-700
                   {% else %}bg-surface-100 text-surface-600{% endif %}">
-                  {{ activity.status|title }}
+                  {{ activity.status_display }}
                 </span>
               </div>
               <p class="text-xs text-surface-300 mt-1">{{ activity.time_ago }}</p>

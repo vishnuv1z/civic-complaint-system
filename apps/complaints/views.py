@@ -84,6 +84,7 @@ def home_view(request):
             'category': c.category or 'Uncategorised',
             'location': c.address.split(',')[-1].strip() if c.address else '—',
             'status': c.status,
+            'status_display': c.get_status_display(),
             'time_ago': time_ago,
             'tracking_id': c.tracking_id,
         })
