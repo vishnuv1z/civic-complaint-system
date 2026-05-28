@@ -107,7 +107,7 @@
         <div class="bg-primary-600 rounded-xl p-6 text-white">
           <h2 class="font-semibold text-lg mb-1">Have an issue to report?</h2>
           <p class="text-primary-100 text-sm mb-4 leading-relaxed">Create a free account in under a minute. No personal
-            information is shared with departments — only your complaint details.</p>
+            information is shared with departments, only your complaint details.</p>
           <div class="flex flex-col sm:flex-row gap-3">
             <a href="{% url 'accounts:register' %}"
               class="px-5 py-2.5 rounded-lg text-sm font-semibold text-primary-700 bg-white hover:bg-primary-50 transition-colors text-center">
@@ -126,7 +126,7 @@
           <div class="px-5 py-4 border-b border-surface-100 flex items-center justify-between">
             <div>
               <h2 class="font-semibold text-surface-900 text-sm">Complaint Categories</h2>
-              <p class="text-xs text-surface-400 mt-0.5">Our AI routes to the correct department automatically</p>
+              <p class="text-xs text-surface-400 mt-0.5">These are the different complaint categories</p>
             </div>
             {% if user.is_authenticated %}
             <a href="{% url 'complaints:submit' %}"
@@ -375,7 +375,7 @@
                   {% if activity.status == 'resolved' %}bg-emerald-50 text-emerald-700
                   {% elif activity.status == 'in_progress' %}bg-blue-50 text-blue-700
                   {% else %}bg-surface-100 text-surface-600{% endif %}">
-                  {{ activity.status|title }}
+                  {{ activity.status_display }}
                 </span>
               </div>
               <p class="text-xs text-surface-300 mt-1">{{ activity.time_ago }}</p>

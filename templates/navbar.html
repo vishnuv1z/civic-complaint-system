@@ -54,7 +54,7 @@
                 {% if user.is_authenticated %}
                     <div class="relative group">
                         <button class="flex items-center gap-2 text-sm font-medium text-surface-600 hover:text-primary-600 transition-colors focus:outline-none py-2">
-                            <div class="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                            <div class="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
                                 {{ user.first_name|first }}{{ user.last_name|first }}
                             </div>
                             <span class="hidden sm:inline">{{ user.first_name }}</span>
