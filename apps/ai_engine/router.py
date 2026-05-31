@@ -20,12 +20,23 @@ def route_complaint(category: str) -> Department | None:
     Returns:
         Department instance or None if no match found.
     """
+    if not category:
+        return None
+
     try:
-        # Search for a department whose categories JSON field contains this category
+        # Works well on PostgreSQL JSONField.
         department = Department.objects.filter(
             categories__contains=[category],
             is_active=True,
         ).first()
-        return department
+        if department:
+            return department
     except Exception:
-        return None
+        # SQLite does not support every JSON containment lookup Django exposes.
+        pass
+
+    for department in Department.objects.filter(is_active=True):
+        if category in (department.categories or []):
+            return department
+
+    return None

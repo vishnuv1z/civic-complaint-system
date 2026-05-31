@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+{% block title %}Review {{ complaint.tracking_id }} - Civiq{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+    <a href="{% url 'complaints:staff_queue' %}" class="inline-flex items-center text-sm font-medium text-surface-500 hover:text-primary-600 mb-6">Back to department queue</a>
+
+    <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-8">
+        <div>
+            <div class="flex flex-wrap items-center gap-2 mb-2">
+                <span class="font-mono text-xs font-semibold text-primary-600 bg-primary-50 px-2.5 py-1 rounded">{{ complaint.tracking_id }}</span>
+                <span class="text-xs font-semibold px-2.5 py-1 rounded bg-surface-100 text-surface-700">{{ complaint.get_status_display }}</span>
+                <span class="text-xs font-semibold px-2.5 py-1 rounded
+                    {% if complaint.priority == 'critical' %}bg-red-50 text-red-700
+                    {% elif complaint.priority == 'high' %}bg-orange-50 text-orange-700
+                    {% elif complaint.priority == 'medium' %}bg-amber-50 text-amber-700
+                    {% else %}bg-surface-100 text-surface-600
+                    {% endif %}">
+                    {{ complaint.get_priority_display }} Priority
+                </span>
+            </div>
+            <h1 class="text-3xl font-bold text-surface-900">{{ complaint.title }}</h1>
+            <p class="text-sm text-surface-500 mt-1">{{ complaint.department.name|default:"Unassigned department" }}</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 space-y-6">
+            <section class="bg-white border border-surface-100 rounded-xl p-6">
+                <h2 class="text-sm font-semibold text-surface-500 uppercase mb-3">Complaint Details</h2>
+                <p class="text-surface-700 whitespace-pre-wrap leading-relaxed">{{ complaint.description }}</p>
+            </section>
+
+            {% if images %}
+            <section class="bg-white border border-surface-100 rounded-xl p-6">
+                <h2 class="text-sm font-semibold text-surface-500 uppercase mb-4">Evidence</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {% for image in images %}
+                    <div class="rounded-lg border border-surface-100 overflow-hidden">
+                        <img src="{{ image.image.url }}" alt="{{ image.caption|default:'Complaint image' }}" class="w-full h-48 object-cover">
+                        {% if image.caption %}
+                        <p class="text-xs text-surface-500 p-3">{{ image.caption }}</p>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+
+            <section class="bg-white border border-surface-100 rounded-xl p-6">
+                <h2 class="text-sm font-semibold text-surface-500 uppercase mb-4">Timeline</h2>
+                {% if status_updates %}
+                <div class="space-y-4">
+                    {% for update in status_updates %}
+                    <div class="border-l-2 border-primary-100 pl-4">
+                        <p class="text-sm font-semibold text-surface-900">{{ update.get_old_status_display }} to {{ update.get_new_status_display }}</p>
+                        {% if update.remarks %}
+                        <p class="text-sm text-surface-600 mt-1">{{ update.remarks }}</p>
+                        {% endif %}
+                        <p class="text-xs text-surface-400 mt-1">{{ update.created_at|date:"M d, Y - h:i A" }}{% if update.changed_by %} by {{ update.changed_by.get_full_name }}{% endif %}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-sm text-surface-400">No triage actions yet.</p>
+                {% endif %}
+            </section>
+
+            {% if forward_logs %}
+            <section class="bg-white border border-surface-100 rounded-xl p-6">
+                <h2 class="text-sm font-semibold text-surface-500 uppercase mb-4">Forwarding Log</h2>
+                <div class="space-y-3">
+                    {% for log in forward_logs %}
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border border-surface-100 rounded-lg p-3">
+                        <div>
+                            <p class="text-sm font-semibold text-surface-800">{{ log.recipient_email|default:"No email" }}</p>
+                            <p class="text-xs text-surface-500">{{ log.created_at|date:"M d, Y - h:i A" }}</p>
+                            {% if log.error_message %}<p class="text-xs text-red-600 mt-1">{{ log.error_message }}</p>{% endif %}
+                        </div>
+                        <span class="text-xs font-semibold px-2 py-1 rounded
+                            {% if log.status == 'sent' %}bg-emerald-50 text-emerald-700
+                            {% elif log.status == 'failed' %}bg-red-50 text-red-700
+                            {% else %}bg-amber-50 text-amber-700
+                            {% endif %}">
+                            {{ log.get_status_display }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+        </div>
+
+        <aside class="space-y-6">
+            <section class="bg-white border border-surface-100 rounded-xl p-6">
+                <h2 class="text-sm font-semibold text-surface-500 uppercase mb-4">Triage Action</h2>
+                <form method="post" class="space-y-4">
+                    {% csrf_token %}
+                    <div>
+                        <label for="{{ form.action.id_for_label }}" class="block text-sm font-medium text-surface-700 mb-1">Action</label>
+                        {{ form.action }}
+                        {% if form.action.errors %}<p class="text-xs text-red-600 mt-1">{{ form.action.errors.0 }}</p>{% endif %}
+                    </div>
+                    <div>
+                        <label for="{{ form.remarks.id_for_label }}" class="block text-sm font-medium text-surface-700 mb-1">Remarks</label>
+                        {{ form.remarks }}
+                        {% if form.remarks.errors %}<p class="text-xs text-red-600 mt-1">{{ form.remarks.errors.0 }}</p>{% endif %}
+                    </div>
+                    <button type="submit" class="w-full px-4 py-2.5 rounded-lg text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 transition-colors">Submit Action</button>
+                </form>
+            </section>
+
+            <section class="bg-white border border-surface-100 rounded-xl p-6">
+                <h2 class="text-sm font-semibold text-surface-500 uppercase mb-4">Routing Info</h2>
+                <dl class="space-y-3 text-sm">
+                    <div>
+                        <dt class="text-surface-400">Authority Email</dt>
+                        <dd class="font-medium text-surface-800">
+                            {{ complaint.department.contact_email|default:"Not configured" }}
+                            <a href="{% url 'departments:settings' %}?next={{ request.path }}" class="text-xs text-primary-600 hover:underline ml-1">(Edit)</a>
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-surface-400">Authority Phone</dt>
+                        <dd class="font-medium text-surface-800">
+                            {{ complaint.department.contact_phone|default:"Not configured" }}
+                            <a href="{% url 'departments:settings' %}?next={{ request.path }}" class="text-xs text-primary-600 hover:underline ml-1">(Edit)</a>
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-surface-400">Category</dt>
+                        <dd class="font-medium text-surface-800">{{ complaint.category|default:"Uncategorized" }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-surface-400">AI Category</dt>
+                        <dd class="font-medium text-surface-800">{{ complaint.ai_category|default:"Not available" }}</dd>
+                    </div>
+                </dl>
+            </section>
+
+            <section class="bg-white border border-surface-100 rounded-xl p-6">
+                <h2 class="text-sm font-semibold text-surface-500 uppercase mb-4">Location</h2>
+                {% if complaint.address %}
+                <p class="text-sm text-surface-700">{{ complaint.address }}</p>
+                {% else %}
+                <p class="text-sm text-surface-400">No address provided.</p>
+                {% endif %}
+                {% if complaint.latitude and complaint.longitude %}
+                <p class="text-xs text-surface-500 mt-2">{{ complaint.latitude }}, {{ complaint.longitude }}</p>
+                {% endif %}
+            </section>
+        </aside>
+    </div>
+</div>
+{% endblock %}

@@ -1,5 +1,9 @@
 {% extends 'base.html' %}
-{% block title %}Submit Complaint — CivicAI{% endblock %}
+{% block title %}Submit Complaint — Civiq{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+{% endblock %}
 
 {% block content %}
 <div class="max-w-3xl mx-auto py-12 px-4">
@@ -20,19 +24,49 @@
             </h2>
 
             <div>
-                <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-surface-700 mb-1">Title <span class="text-red-500">*</span></label>
+                <div class="flex justify-between items-center mb-1">
+                    <label for="{{ form.title.id_for_label }}" class="block text-sm font-medium text-surface-700">Title <span class="text-red-500">*</span></label>
+                    <button type="button" id="btn-rewrite-title" class="text-xs font-semibold px-3 py-1 bg-primary-50 hover:bg-primary-100 text-primary-700 rounded-lg flex items-center gap-1 transition-all">
+                        Auto-Rewrite
+                    </button>
+                </div>
                 {{ form.title }}
                 {% if form.title.errors %}<p class="mt-1 text-xs text-red-600">{{ form.title.errors.0 }}</p>{% endif %}
             </div>
 
             <div>
-                <label for="{{ form.category.id_for_label }}" class="block text-sm font-medium text-surface-700 mb-1">Category <span class="text-red-500">*</span></label>
+                <div class="flex justify-between items-center mb-1">
+                    <label for="{{ form.category.id_for_label }}" class="block text-sm font-medium text-surface-700">Category <span class="text-red-500">*</span></label>
+                    <button type="button" id="btn-auto-categorize" class="text-xs font-semibold px-3 py-1 bg-primary-50 hover:bg-primary-100 text-primary-700 rounded-lg flex items-center gap-1 transition-all">
+                        Auto-Categorize
+                    </button>
+                </div>
                 {{ form.category }}
                 {% if form.category.errors %}<p class="mt-1 text-xs text-red-600">{{ form.category.errors.0 }}</p>{% endif %}
             </div>
 
             <div>
-                <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-surface-700 mb-1">Description <span class="text-red-500">*</span></label>
+                <label class="block text-sm font-medium text-surface-700 mb-1">Attach Image <span class="text-surface-400 font-normal">(optional)</span></label>
+                <!-- Drop zone -->
+                <div id="drop-zone" class="border-2 border-dashed border-surface-200 rounded-xl p-6 text-center hover:border-primary-300 hover:bg-primary-50/30 transition-all duration-300 cursor-pointer" onclick="document.getElementById('id_image').click()">
+                    <svg class="w-8 h-8 text-surface-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                    <p class="text-sm text-surface-500">Click to upload or drag & drop</p>
+                    <p class="text-xs text-surface-400 mt-1">PNG, JPG, JPEG up to 5MB</p>
+                    <div id="file-preview" class="hidden mt-4">
+                        <img id="preview-image" class="max-h-32 mx-auto rounded-lg shadow" alt="Preview">
+                        <p id="file-name" class="text-sm text-surface-600 mt-2"></p>
+                    </div>
+                </div>
+                <div class="hidden">{{ image_form.image }}</div>
+            </div>
+
+            <div class="pt-2 border-t border-surface-100">
+                <div class="flex justify-between items-center mb-2">
+                    <label for="{{ form.description.id_for_label }}" class="block text-sm font-medium text-surface-700">Description <span class="text-red-500">*</span></label>
+                    <button type="button" id="btn-generate-desc" class="text-xs font-semibold px-3 py-1.5 bg-gradient-to-r from-accent-500 to-accent-600 hover:from-accent-600 hover:to-accent-700 text-white rounded-lg flex items-center gap-2 transition-all shadow-sm">
+                        Auto-Generate Description with AI
+                    </button>
+                </div>
                 {{ form.description }}
                 {% if form.description.errors %}<p class="mt-1 text-xs text-red-600">{{ form.description.errors.0 }}</p>{% endif %}
             </div>
@@ -40,40 +74,32 @@
 
         <!-- Location Card -->
         <div class="bg-white rounded-2xl shadow-lg border border-surface-100 p-6 sm:p-8 space-y-5">
-            <h2 class="text-lg font-semibold text-surface-900 flex items-center gap-2">
-                <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                Location
-            </h2>
+            <div class="flex justify-between items-center">
+                <h2 class="text-lg font-semibold text-surface-900 flex items-center gap-2">
+                    <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    Location
+                </h2>
+                <button type="button" id="use-current-location" class="text-xs font-medium px-3 py-1.5 bg-primary-50 text-primary-700 hover:bg-primary-100 rounded-lg flex items-center gap-1 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"/></svg>
+                    Use Current Location
+                </button>
+            </div>
 
             <div>
                 <label for="{{ form.address.id_for_label }}" class="block text-sm font-medium text-surface-700 mb-1">Address</label>
                 {{ form.address }}
                 {% if form.address.errors %}<p class="mt-1 text-xs text-red-600">{{ form.address.errors.0 }}</p>{% endif %}
             </div>
-        </div>
 
-        <!-- Image Upload Card -->
-        <div class="bg-white rounded-2xl shadow-lg border border-surface-100 p-6 sm:p-8 space-y-5">
-            <h2 class="text-lg font-semibold text-surface-900 flex items-center gap-2">
-                <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                Attach Image <span class="text-sm font-normal text-surface-400">(optional)</span>
-            </h2>
-
-            <!-- Drop zone -->
-            <div id="drop-zone" class="border-2 border-dashed border-surface-200 rounded-xl p-8 text-center hover:border-primary-300 hover:bg-primary-50/30 transition-all duration-300 cursor-pointer" onclick="document.getElementById('id_image').click()">
-                <svg class="w-10 h-10 text-surface-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
-                <p class="text-sm text-surface-500 mb-1">Click to upload or drag & drop</p>
-                <p class="text-xs text-surface-400">PNG, JPG, JPEG up to 5MB</p>
-                <div id="file-preview" class="hidden mt-4">
-                    <img id="preview-image" class="max-h-40 mx-auto rounded-lg shadow" alt="Preview">
-                    <p id="file-name" class="text-sm text-surface-600 mt-2"></p>
-                </div>
-            </div>
-            <div class="hidden">{{ image_form.image }}</div>
-
-            <div>
-                <label for="{{ image_form.caption.id_for_label }}" class="block text-sm font-medium text-surface-700 mb-1">Image Caption</label>
-                {{ image_form.caption }}
+            <div class="mt-4">
+                <label class="block text-sm font-medium text-surface-700 mb-2">Pinpoint Location on Map</label>
+                <div id="submit-map" class="w-full h-[300px] rounded-xl border border-surface-200 z-10 relative"></div>
+                <p id="location-error" class="hidden mt-2 text-xs text-red-600"></p>
+                <p id="location-success" class="hidden mt-2 text-xs text-emerald-600"></p>
+                {{ form.latitude }}
+                {% if form.latitude.errors %}<p class="mt-1 text-xs text-red-600">Latitude Error: {{ form.latitude.errors.0 }}</p>{% endif %}
+                {{ form.longitude }}
+                {% if form.longitude.errors %}<p class="mt-1 text-xs text-red-600">Longitude Error: {{ form.longitude.errors.0 }}</p>{% endif %}
             </div>
         </div>
 
@@ -89,6 +115,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script>
 // Image preview
 const imageInput = document.getElementById('id_image');
@@ -125,6 +152,255 @@ if (dropZone) {
         if (files.length && imageInput) {
             imageInput.files = files;
             imageInput.dispatchEvent(new Event('change'));
+        }
+    });
+}
+
+// Map and Geolocation
+const latInput = document.getElementById('id_latitude');
+const lngInput = document.getElementById('id_longitude');
+const btnLocation = document.getElementById('use-current-location');
+const errorEl = document.getElementById('location-error');
+const successEl = document.getElementById('location-success');
+
+// Initialize map (default to Kerala center)
+const defaultLat = 10.8505;
+const defaultLng = 76.2711;
+const map = L.map('submit-map').setView([defaultLat, defaultLng], 7);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+
+let marker = null;
+
+// Function to update marker and inputs
+function updateLocation(lat, lng) {
+    if (marker) {
+        marker.setLatLng([lat, lng]);
+    } else {
+        marker = L.marker([lat, lng], {draggable: true}).addTo(map);
+        marker.on('dragend', function(e) {
+            const pos = marker.getLatLng();
+            updateLocation(pos.lat, pos.lng);
+        });
+    }
+    // Limit to 6 decimal places to match Django's DecimalField max_decimal_places=6
+    latInput.value = lat.toFixed(6);
+    lngInput.value = lng.toFixed(6);
+    map.setView([lat, lng], 15);
+}
+
+// If inputs already have values, show them
+if (latInput.value && lngInput.value) {
+    updateLocation(parseFloat(latInput.value), parseFloat(lngInput.value));
+}
+
+// Map click event
+map.on('click', function(e) {
+    updateLocation(e.latlng.lat, e.latlng.lng);
+    errorEl.classList.add('hidden');
+    successEl.textContent = "Location selected manually.";
+    successEl.classList.remove('hidden');
+});
+
+// Geolocation
+btnLocation.addEventListener('click', function() {
+    btnLocation.disabled = true;
+    btnLocation.innerHTML = `<svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Locating...`;
+    
+    if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+            function(position) {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                updateLocation(lat, lng);
+                
+                errorEl.classList.add('hidden');
+                successEl.textContent = "Location updated successfully!";
+                successEl.classList.remove('hidden');
+                
+                btnLocation.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> Found`;
+                btnLocation.classList.replace('bg-primary-50', 'bg-emerald-50');
+                btnLocation.classList.replace('text-primary-700', 'text-emerald-700');
+            },
+            function(error) {
+                btnLocation.disabled = false;
+                btnLocation.innerHTML = `Use Current Location`;
+                successEl.classList.add('hidden');
+                errorEl.classList.remove('hidden');
+                if (error.code === error.PERMISSION_DENIED) {
+                    errorEl.textContent = "Location access was denied. Please allow location access or click on the map.";
+                } else {
+                    errorEl.textContent = "Unable to retrieve your location. Please click on the map to set your location.";
+                }
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    } else {
+        btnLocation.disabled = false;
+        btnLocation.innerHTML = `Use Current Location`;
+        successEl.classList.add('hidden');
+        errorEl.classList.remove('hidden');
+        errorEl.textContent = "Geolocation is not supported by your browser.";
+    }
+});
+
+// AI Description Generation
+const btnGenerate = document.getElementById('btn-generate-desc');
+const descInput = document.getElementById('id_description');
+const titleInput = document.getElementById('id_title');
+const categoryInput = document.getElementById('id_category');
+
+if (btnGenerate) {
+    btnGenerate.addEventListener('click', async function() {
+        const title = titleInput.value.trim();
+        const category = categoryInput.value.trim();
+        
+        if (!title || !category) {
+            alert('Please fill out the Title and Category first.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('title', title);
+        formData.append('category', category);
+        
+        if (imageInput.files.length > 0) {
+            formData.append('image', imageInput.files[0]);
+        }
+
+        const originalText = btnGenerate.innerHTML;
+        btnGenerate.disabled = true;
+        btnGenerate.innerHTML = `<svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Generating...`;
+
+        try {
+            // Need CSRF token for POST
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            const response = await fetch('/ai/generate-description/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                },
+                body: formData
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || 'Failed to generate description');
+            }
+
+            const data = await response.json();
+            descInput.value = data.description;
+            
+        } catch (error) {
+            console.error('Error generating description:', error);
+            alert('Error generating description. ' + error.message);
+        } finally {
+            btnGenerate.disabled = false;
+            btnGenerate.innerHTML = originalText;
+        }
+    });
+}
+
+// AI Title Rewriting
+const btnRewrite = document.getElementById('btn-rewrite-title');
+if (btnRewrite) {
+    btnRewrite.addEventListener('click', async function() {
+        const title = titleInput.value.trim();
+        if (!title) {
+            alert('Please enter a basic title first to rewrite it.');
+            titleInput.focus();
+            return;
+        }
+
+        const originalHtml = btnRewrite.innerHTML;
+        btnRewrite.innerHTML = `<svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Rewriting...`;
+        btnRewrite.disabled = true;
+
+        const formData = new FormData();
+        formData.append('title', title);
+
+        try {
+            const response = await fetch('{% url "ai_engine:rewrite_title" %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                titleInput.value = data.title;
+            } else {
+                alert('Error rewriting title. ' + (data.error || ''));
+            }
+        } catch (error) {
+            console.error('Error rewriting title:', error);
+            alert('Failed to rewrite title. Please try again.');
+        } finally {
+            btnRewrite.innerHTML = originalHtml;
+            btnRewrite.disabled = false;
+        }
+    });
+}
+
+// AI Auto-Categorize
+const btnCategorize = document.getElementById('btn-auto-categorize');
+if (btnCategorize) {
+    btnCategorize.addEventListener('click', async function() {
+        const title = titleInput.value.trim();
+        if (!title) {
+            alert('Please enter a title first to categorize it.');
+            titleInput.focus();
+            return;
+        }
+
+        const originalHtml = btnCategorize.innerHTML;
+        btnCategorize.innerHTML = `<svg class="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Categorizing...`;
+        btnCategorize.disabled = true;
+
+        const formData = new FormData();
+        formData.append('title', title);
+        
+        const fileInput = document.getElementById('id_image');
+        if (fileInput.files.length > 0) {
+            formData.append('image', fileInput.files[0]);
+        }
+
+        try {
+            const response = await fetch('{% url "ai_engine:categorize" %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                // Find matching option in the select
+                const options = Array.from(categoryInput.options);
+                const matchingOption = options.find(opt => opt.value === data.category);
+                
+                if (matchingOption) {
+                    categoryInput.value = matchingOption.value;
+                } else if (data.category === 'Other') {
+                    categoryInput.value = 'Other';
+                } else {
+                    alert(`Categorized as ${data.category}, but it's not in the list.`);
+                }
+            } else {
+                alert('Error categorizing. ' + (data.error || ''));
+            }
+        } catch (error) {
+            console.error('Error categorizing:', error);
+            alert('Failed to categorize. Please try again.');
+        } finally {
+            btnCategorize.innerHTML = originalHtml;
+            btnCategorize.disabled = false;
         }
     });
 }

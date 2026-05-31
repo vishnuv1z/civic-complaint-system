@@ -6,15 +6,19 @@
         <div class="flex items-center justify-between h-16">
 
             <!-- Logo -->
-            <a href="{% url 'complaints:home' %}" class="flex items-center gap-2.5 group">
-                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center shadow-lg shadow-primary-500/20 group-hover:shadow-primary-500/40 transition-shadow duration-300">
-                    <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
-                    </svg>
-                </div>
-                <span class="text-lg font-bold bg-gradient-to-r from-primary-600 to-accent-600 bg-clip-text text-transparent">
-                    CivicAI
+            <!-- Logo -->
+            <a href="{% url 'complaints:home' %}" class="flex items-center gap-3 group">
+
+                <img 
+                    src="{% static 'images/logo.png' %}" 
+                    alt="Civiq Logo"
+                    class="w-10 h-10 object-contain"
+                >
+
+                <span class="text-xl font-bold text-primary-600 tracking-tight">
+                    Civiq
                 </span>
+
             </a>
 
             <!-- Desktop Navigation Links -->
@@ -22,18 +26,23 @@
                 <a href="{% url 'complaints:home' %}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-primary-50 transition-all duration-200">
                     Home
                 </a>
-                {% if user.is_authenticated %}
+                <a href="{% url 'complaints:explore' %}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-primary-50 transition-all duration-200">
+                    Explore
+                </a>
+                {% if user.is_authenticated and user.role != 'department_staff' %}
                 <a href="{% url 'complaints:submit' %}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-primary-50 transition-all duration-200">
                     Submit Complaint
                 </a>
-                <a href="{% url 'complaints:list' %}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-primary-50 transition-all duration-200">
-                    My Complaints
+                {% endif %}
+                {% if user.is_authenticated and user.role == 'department_staff' %}
+                <a href="{% url 'complaints:staff_queue' %}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-primary-50 transition-all duration-200">
+                    Department Queue
                 </a>
                 {% endif %}
-                <a href="{% url 'complaints:map' %}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-primary-50 transition-all duration-200">
-                    Complaints Map
-                </a>
                 {% if user.is_authenticated and user.is_staff %}
+                <a href="{% url 'complaints:dashboard' %}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-primary-50 transition-all duration-200">
+                    Dashboard
+                </a>
                 <a href="{% url 'admin:index' %}" class="nav-link px-3 py-2 rounded-lg text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-primary-50 transition-all duration-200">
                     Admin Panel
                 </a>
@@ -43,15 +52,33 @@
             <!-- Auth Buttons -->
             <div class="flex items-center gap-3">
                 {% if user.is_authenticated %}
-                    <a href="{% url 'accounts:profile' %}" class="flex items-center gap-2 text-sm font-medium text-surface-600 hover:text-primary-600 transition-colors">
-                        <div class="w-8 h-8 rounded-full bg-gradient-to-br from-primary-400 to-accent-400 flex items-center justify-center text-white text-xs font-bold">
-                            {{ user.first_name|first }}{{ user.last_name|first }}
+                    <div class="relative group">
+                        <button class="flex items-center gap-2 text-sm font-medium text-surface-600 hover:text-primary-600 transition-colors focus:outline-none py-2">
+                            <div class="w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                                {{ user.first_name|first }}{{ user.last_name|first }}
+                            </div>
+                            <span class="hidden sm:inline">{{ user.first_name }}</span>
+                            <svg class="w-4 h-4 ml-0.5 text-surface-400 group-hover:text-primary-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </button>
+
+                        <!-- Dropdown Menu -->
+                        <div class="absolute right-0 mt-0 w-48 bg-white rounded-xl shadow-lg border border-surface-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-right z-50">
+                            <div class="py-1">
+                                <a href="{% url 'accounts:profile' %}" class="block px-4 py-2 text-sm text-surface-700 hover:bg-surface-50 hover:text-primary-600 transition-colors">Profile</a>
+                                {% if user.role != 'department_staff' %}
+                                <a href="{% url 'complaints:list' %}" class="block px-4 py-2 text-sm text-surface-700 hover:bg-surface-50 hover:text-primary-600 transition-colors">My Complaints</a>
+                                {% endif %}
+                                {% if user.role == 'department_staff' %}
+                                <a href="{% url 'complaints:staff_queue' %}" class="block px-4 py-2 text-sm text-surface-700 hover:bg-surface-50 hover:text-primary-600 transition-colors">Department Queue</a>
+                                {% endif %}
+                                <div class="border-t border-surface-100 my-1"></div>
+                                <form method="post" action="{% url 'accounts:logout' %}" class="block w-full m-0">
+                                    {% csrf_token %}
+                                    <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">Logout</button>
+                                </form>
+                            </div>
                         </div>
-                        <span class="hidden sm:inline">{{ user.first_name }}</span>
-                    </a>
-                    <a href="{% url 'accounts:logout' %}" class="px-3 py-1.5 rounded-lg text-sm font-medium text-surface-500 hover:text-red-600 hover:bg-red-50 transition-all duration-200">
-                        Logout
-                    </a>
+                    </div>
                 {% else %}
                     <a href="{% url 'accounts:login' %}" class="px-4 py-2 rounded-lg text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-primary-50 transition-all duration-200">
                         Sign In
@@ -74,11 +101,16 @@
         <div id="mobile-menu" class="hidden md:hidden pb-4 border-t border-surface-100 mt-2 pt-3">
             <div class="flex flex-col gap-1">
                 <a href="{% url 'complaints:home' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-primary-50 transition-all">Home</a>
+                <a href="{% url 'complaints:explore' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-primary-50 transition-all">Explore</a>
                 {% if user.is_authenticated %}
+                {% if user.role != 'department_staff' %}
                 <a href="{% url 'complaints:submit' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-primary-50 transition-all">Submit Complaint</a>
                 <a href="{% url 'complaints:list' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-primary-50 transition-all">My Complaints</a>
                 {% endif %}
-                <a href="{% url 'complaints:map' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-primary-50 transition-all">Complaints Map</a>
+                {% if user.role == 'department_staff' %}
+                <a href="{% url 'complaints:staff_queue' %}" class="px-3 py-2 rounded-lg text-sm font-medium text-surface-600 hover:text-primary-600 hover:bg-primary-50 transition-all">Department Queue</a>
+                {% endif %}
+                {% endif %}
             </div>
         </div>
     </div>

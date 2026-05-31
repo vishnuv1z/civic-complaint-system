@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}{{ complaint.tracking_id }} — CivicAI{% endblock %}
+{% block title %}{{ complaint.tracking_id }} — Civiq{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto py-12 px-4">
@@ -17,6 +17,7 @@
                 <span class="text-xs font-medium px-2.5 py-1 rounded-lg
                     {% if complaint.status == 'pending' %}bg-amber-50 text-amber-700 border border-amber-200
                     {% elif complaint.status == 'under_review' %}bg-blue-50 text-blue-700 border border-blue-200
+                    {% elif complaint.status == 'forwarded' %}bg-emerald-50 text-emerald-700 border border-emerald-200
                     {% elif complaint.status == 'in_progress' %}bg-indigo-50 text-indigo-700 border border-indigo-200
                     {% elif complaint.status == 'resolved' %}bg-emerald-50 text-emerald-700 border border-emerald-200
                     {% elif complaint.status == 'rejected' %}bg-red-50 text-red-700 border border-red-200

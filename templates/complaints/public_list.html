@@ -1,0 +1,234 @@
+{% extends 'base.html' %}
+{% block title %}Explore Complaints - Civiq{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+        <div>
+            <h1 class="text-3xl font-bold text-surface-900 mb-2">Explore Complaints</h1>
+            <p class="text-surface-500">View public complaints filed by citizens across the community.</p>
+        </div>
+
+        <!-- Filter Options (Visual Only for now) -->
+        <div class="flex items-center gap-3">
+            <span class="text-sm font-medium text-surface-600">Filter by Status:</span>
+            <select class="form-input py-2 text-sm max-w-[150px] bg-white">
+                <option value="">All</option>
+                <option value="pending">Pending</option>
+                <option value="resolved">Resolved</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- 3-Column Grid -->
+    {% if complaints %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for c in complaints %}
+        <div class="bg-white rounded-2xl shadow-sm hover:shadow-md border border-surface-100 overflow-hidden transition-shadow duration-300 flex flex-col">
+            <!-- Image Area -->
+            {% if c.images.first %}
+            <div class="w-full h-48 bg-surface-100 overflow-hidden">
+                <img src="{{ c.images.first.image.url }}" alt="{{ c.title }}" class="w-full h-full object-cover">
+            </div>
+            {% else %}
+            <div class="w-full h-48 bg-surface-100 flex items-center justify-center border-b border-surface-100">
+                <svg class="w-12 h-12 text-surface-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            </div>
+            {% endif %}
+
+            <!-- Content Area -->
+            <div class="p-5 flex-1 flex flex-col">
+                <div class="flex items-start justify-between gap-2 mb-2">
+                    <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider
+                        {% if c.status == 'pending' %}bg-amber-50 text-amber-700
+                        {% elif c.status == 'under_review' %}bg-blue-50 text-blue-700
+                        {% elif c.status == 'forwarded' %}bg-emerald-50 text-emerald-700
+                        {% elif c.status == 'in_progress' %}bg-indigo-50 text-indigo-700
+                        {% elif c.status == 'resolved' %}bg-emerald-50 text-emerald-700
+                        {% elif c.status == 'rejected' %}bg-red-50 text-red-700
+                        {% else %}bg-surface-100 text-surface-700
+                        {% endif %}">
+                        {{ c.get_status_display }}
+                    </span>
+                    <span class="text-xs font-mono font-medium text-surface-400">{{ c.tracking_id }}</span>
+                </div>
+
+                <h3 class="text-lg font-bold text-surface-900 mb-2 line-clamp-2" title="{{ c.title }}">{{ c.title }}</h3>
+
+                <p class="text-sm text-surface-600 mb-4 line-clamp-3 flex-1">{{ c.description }}</p>
+
+                <div class="mt-auto pt-4 border-t border-surface-100 flex items-center justify-between text-xs text-surface-500">
+                    <span class="font-medium px-2.5 py-1 bg-surface-100 rounded-lg">{{ c.category|default:"Uncategorized" }}</span>
+                    <span>{{ c.created_at|date:"M d, Y" }}</span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-center py-16 bg-white rounded-2xl border border-surface-100">
+        <svg class="w-16 h-16 text-surface-200 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+        <h3 class="text-lg font-medium text-surface-900 mb-1">No complaints found</h3>
+        <p class="text-surface-500">There are no public complaints to display yet.</p>
+    </div>
+    {% endif %}
+
+    <!-- Map Section -->
+    <div class="mt-12">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+            <h2 class="text-2xl font-bold text-surface-900">Geographical Distribution</h2>
+            <div class="flex items-center gap-2 text-xs font-medium text-surface-500 bg-white px-4 py-2 rounded-lg border border-surface-200 shadow-sm">
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Pending
+                <span class="w-2.5 h-2.5 rounded-full bg-blue-500 ml-2"></span> In Progress
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 ml-2"></span> Resolved
+                <span class="w-2.5 h-2.5 rounded-full bg-red-500 ml-2"></span> Rejected
+            </div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-xl border border-surface-100 overflow-hidden">
+            <div id="complaints-map" class="w-full h-[500px] z-10 relative bg-surface-50" data-coordinates-url="{% url 'complaints:coordinates_api' %}"></div>
+        </div>
+    </div>
+</div>
+
+{{ complaints_json|json_script:"complaints-data" }}
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+    const defaultCenter = [10.8505, 76.2711];
+    const mapElement = document.getElementById('complaints-map');
+    const map = L.map(mapElement).setView(defaultCenter, 7);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, char => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;'
+        }[char]));
+    }
+
+    function isValidCoordinate(latitude, longitude) {
+        return Number.isFinite(latitude)
+            && Number.isFinite(longitude)
+            && latitude >= -90
+            && latitude <= 90
+            && longitude >= -180
+            && longitude <= 180;
+    }
+
+    function markerStyles(status) {
+        let markerColor = '#ef4444';
+        let fillColor = '#fca5a5';
+
+        if (status === 'pending') {
+            markerColor = '#f59e0b';
+            fillColor = '#fde68a';
+        } else if (status === 'resolved' || status === 'forwarded') {
+            markerColor = '#10b981';
+            fillColor = '#a7f3d0';
+        } else if (status === 'in_progress' || status === 'under_review') {
+            markerColor = '#3b82f6';
+            fillColor = '#bfdbfe';
+        }
+
+        return { markerColor, fillColor };
+    }
+
+    function popupHtml(c) {
+        return `
+            <div class="p-1 min-w-[200px]">
+                <div class="text-xs font-mono font-semibold text-primary-600 mb-1">${escapeHtml(c.tracking_id)}</div>
+                <h3 class="font-bold text-surface-800 text-sm mb-2 line-clamp-2">${escapeHtml(c.title)}</h3>
+                <div class="mb-3">
+                    <span class="text-[10px] font-medium px-2 py-0.5 rounded uppercase
+                        ${c.status === 'pending' ? 'bg-amber-50 text-amber-700' :
+                          c.status === 'resolved' || c.status === 'forwarded' ? 'bg-emerald-50 text-emerald-700' :
+                          c.status === 'rejected' ? 'bg-red-50 text-red-700' :
+                          'bg-blue-50 text-blue-700'}">
+                        ${escapeHtml(c.status_display)}
+                    </span>
+                </div>
+                <a href="${escapeHtml(c.url)}" class="text-xs font-medium text-primary-600 hover:text-primary-700 hover:underline">View Details -></a>
+            </div>
+        `;
+    }
+
+    function embeddedComplaintData() {
+        const dataElement = document.getElementById('complaints-data');
+        const parsedData = JSON.parse(dataElement.textContent || '[]');
+        return Array.isArray(parsedData) ? parsedData : [];
+    }
+
+    async function fetchComplaintData() {
+        const fallbackData = embeddedComplaintData();
+
+        try {
+            const response = await fetch(mapElement.dataset.coordinatesUrl, {
+                headers: { 'Accept': 'application/json' },
+                credentials: 'same-origin'
+            });
+
+            if (!response.ok) {
+                throw new Error(`Coordinate API returned ${response.status}`);
+            }
+
+            const apiData = await response.json();
+            return Array.isArray(apiData.complaints) ? apiData.complaints : fallbackData;
+        } catch (error) {
+            console.warn('Using embedded complaint coordinates because the API request failed.', error);
+            return fallbackData;
+        }
+    }
+
+    function renderComplaintMarkers(complaintsData) {
+        const bounds = [];
+
+        complaintsData.forEach(c => {
+            const latitude = Number(c.latitude);
+            const longitude = Number(c.longitude);
+
+            if (!isValidCoordinate(latitude, longitude)) {
+                return;
+            }
+
+            const { markerColor, fillColor } = markerStyles(c.status);
+            const marker = L.circleMarker([latitude, longitude], {
+                radius: 8,
+                fillColor: fillColor,
+                color: markerColor,
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.8
+            }).addTo(map);
+
+            marker.bindPopup(popupHtml(c));
+            bounds.push([latitude, longitude]);
+        });
+
+        if (bounds.length === 1) {
+            map.setView(bounds[0], 14);
+        } else if (bounds.length > 1) {
+            map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        const complaintsData = await fetchComplaintData();
+        renderComplaintMarkers(complaintsData);
+    });
+</script>
+{% endblock %}

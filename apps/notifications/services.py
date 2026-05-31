@@ -23,6 +23,24 @@ def send_email_notification(recipient_email, subject, message):
 
 
 def send_sms_notification(phone_number, message):
-    """Send an SMS notification via Twilio (Phase 10)."""
-    # Twilio integration will be added in Phase 10
-    pass
+    """Send an SMS notification via Twilio."""
+    from twilio.rest import Client
+    
+    account_sid = getattr(settings, 'TWILIO_ACCOUNT_SID', None)
+    auth_token = getattr(settings, 'TWILIO_AUTH_TOKEN', None)
+    from_phone = getattr(settings, 'TWILIO_PHONE_NUMBER', None)
+    
+    if not all([account_sid, auth_token, from_phone]):
+        return False
+        
+    try:
+        client = Client(account_sid, auth_token)
+        message = client.messages.create(
+            body=message,
+            from_=from_phone,
+            to=phone_number
+        )
+        return True
+    except Exception as e:
+        print(f"Twilio SMS Error: {str(e)}")
+        return False
